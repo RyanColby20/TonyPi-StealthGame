@@ -1,0 +1,7 @@
+# Servo initial positions
+# The TonyPi robot uses two servos to pan and tilt its camera.
+# These values set the initial pulse width for each servo.  Feel
+# free to adjust them to suit your robot's geometry.
+
+servo1: 500
+servo2: 500
