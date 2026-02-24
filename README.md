@@ -23,6 +23,7 @@ tonypi_project/
 │   └── calibration_param.npz     # Dummy camera calibration data
 ├── ActionGroups/
 │   ├── stand_slow.d6a            # Action group files
+|   ├── stand.d6a
 │   ├── go_forward.d6a
 │   ├── turn_left_small_step.d6a
 │   ├── turn_right_small_step.d6a
