@@ -101,6 +101,18 @@ The visual patrol file is customized to control the patrol behavior of the TonyP
 
 This is a generalization of this file, and is a core component of this project.
 
+### Follow.py
+
+The follow file in this project is the file that is also used in our visual patrol file. As mentioned before, the visual patrol file runs then when an intruder is detected, the follow file is then activated. The follow file serves the purpose to use the camera that the tonypi pro is equipped with to continuosly look for the target color, which in our case for the intruder is red. While it is looking for that color, it will continuously adjust its head and movement to keep the target color centered. Now if the target moves, it will turn and either step forward or backward to follow it. But, if the target is continuosly detected, for the set amount of time that we desire, the robot will then finally trigger a win action, from the action group. Here is a more formal defintion of the file:
+
+* Detects the target color (red) using the camera and LAB color thresholds.
+* Finds the largest red object and calculates its center position in the frame.
+* Uses PID control to adjust the robot’s head servos so the target stays centered. (PID control makes the robot do smooth movements instead of jerky, unstable movements)
+* Moves the robot (turn left/right, forward, or backward) to follow the target.
+* If the target is detected continuously for set time, the robot performs a “win” action.
+
+This is a generalization of this file, and is a core component of this project.
+
 ## Notes
 
 * The HiWonder SDK has been replaced by stubs; therefore servo and
