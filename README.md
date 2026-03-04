@@ -89,6 +89,18 @@ will look for contours of the selected colour in predefined regions of
 the frame and simulate robot movement by running action groups such as
 `go_forward` and `turn_left_small_step`.
 
+## How the Codes Work and What They Do:
+
+### VisualPatrol.py
+
+The visual patrol file is customized to control the patrol behavior of the TonyPi Pro. What it does in a general sense is that it makes the robot follow a floor line, that is in default black, while also pausing and scanning for an intruder. The intruder however will be marked with a red signifier. So in theory, it is really just looking for the color red, which is the intruder in our case. If the red is detected, then the control is directed to the follow.py code file. However here is a more formal definition of the file:
+
+* The robot follows the line using the camera by checking a few “zones” near the bottom of the image and estimating where the line is, then it adjusts its movement to stay centered.
+* Every few seconds, it pauses patrol, looks up, and does a slow left-to-right head scan while keeping the camera feed updating.
+* If it sees enough red during the scan, it stops patrol and launches Follow.py, saving the head position so following starts from the same direction it detected the intruder.
+
+This is a generalization of this file, and is a core component of this project.
+
 ## Notes
 
 * The HiWonder SDK has been replaced by stubs; therefore servo and
