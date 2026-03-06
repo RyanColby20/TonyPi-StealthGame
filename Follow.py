@@ -43,13 +43,15 @@ range_rgb = {
 
 lab_data = None
 servo_data = None
+
+# Loads LAB color thresholds and servo defaults from yaml
 def load_config():
     global lab_data, servo_data
     
     lab_data = yaml_handle.get_yaml_data(yaml_handle.lab_file_path)
     servo_data = yaml_handle.get_yaml_data(yaml_handle.servo_file_path)
 
-__target_color = ('green',)
+__target_color = ('red',) 
 # Set detection color
 def setBallTargetColor(target_color):
     global __target_color
@@ -57,7 +59,7 @@ def setBallTargetColor(target_color):
     __target_color = target_color
     return (True, ())
 
-# Initial position
+# Moves the robot to its initial starting position
 def initMove():
     Board.setPWMServoPulse(1, servo_data['servo1'], 500)
     Board.setPWMServoPulse(2, servo_data['servo2'], 500)
@@ -74,7 +76,8 @@ start_count = True
 centerX, centerY = -2, -2
 x_pid = PID(P=0.4, I=0.02, D=0.02) # PID initialization
 y_pid = PID(P=0.4, I=0.02, D=0.02)
-# Reset variables
+
+# Resets PID, robot positions, and detection state
 def reset():
     global d_x, d_y
     global start_count
@@ -101,20 +104,20 @@ def init():
     initMove()
 
 __isRunning = False
-# App start-game call
+# Enables tracking
 def start():
     global __isRunning
     reset()
     __isRunning = True
     print("Follow Start")
 
-# App stop-game call
+# Disables tracking
 def stop():
     global __isRunning
     __isRunning = False
     print("Follow Stop")
 
-# App exit-game call
+# Stops game and runs a stand action group
 def exit():
     global __isRunning
     __isRunning = False
@@ -146,11 +149,21 @@ HEAD_TILT_SERVO_ID = 2
 HEAD_UP_PULSE = 2000
 MOVE_TIME_MS = 300
 
+# Runs continuously in a background thread, in 3 steps
+# 1. Tilts the robot head up
+# 2. Waits for detection
+# 3. Decisions if intruder is detected
+    # a. Runs "stand"
+    # b. Starts a timer for uninterrupted detection
+        # I. If detecction lasts long enough (15 seconds) robot does a twist to demonstrate victory
+        # II. Else, turns left or right to scan for intruder, or moves forward or backward based on intruder distance
+# 4. If intruder is lost -> detection timer resets
+
 def move(required_detect_seconds=15.0):
     
     Board.setPWMServoPulse(HEAD_TILT_SERVO_ID, HEAD_UP_PULSE, MOVE_TIME_MS)
     time.sleep(MOVE_TIME_MS / 1000)
-    detect_start = None  # when uninterrupted detection began
+    detect_start = None  # Uninterrupted detection begins
 
     while True:
         if not __isRunning:
@@ -197,6 +210,8 @@ th.start()
 
 radius_data = []
 size = (320, 240)
+
+# Function for image processing to help with tracking
 def run(img):
     global radius_data
     global x_dis, y_dis
@@ -285,10 +300,14 @@ def run(img):
 
     return img
 
+# Main Breakdown
+# 1. Initializes and starts tracking
+# 2. Opens camera
+# 3. Runs action group 
+
 if __name__ == '__main__':
     init()
     start()
-    __target_color = ('red',)
     open_once = yaml_handle.get_yaml_data('/boot/camera_setting.yaml')['open_once']
     if open_once:
         my_camera = cv2.VideoCapture('http://127.0.0.1:8080/?action=stream?dummy=param.mjpg')
