@@ -65,40 +65,118 @@ size = (640, 480)
 
 
 def setLineTargetColor(target_color):
-    """Set the target line colour as a tuple of colour names."""
+    """
+    Set the target line colour as a tuple of colour names.
+    
+    This function will update the global variable that is set as '__target_color,
+    which will later be used inside the image processing logic to decide which LAB
+    color threshold should be applied here. In the project, the robot is mainly set
+    to follow a black line, but this functions allows us to change that if needed. 
+    
+    """
     global __target_color
     __target_color = target_color
     return (True, (), 'SetVisualPatrolColor')
 
 
 def load_config():
-    """Load LAB colour thresholds and servo positions from YAML files."""
+    """
+    Load LAB colour thresholds and servo positions from YAML files.
+    
+    This function reads two YAML configuration files: one for LAB color ranges
+    used in computer vision and one for the default servo values used for the
+    robot's head position. These settings are stored globally so that other
+    functions can use them during patrol, scanning, and intruder detection.
+    
+    """
     global lab_data, servo_data
     lab_data = yaml_handle.get_yaml_data(yaml_handle.lab_file_path)
     servo_data = yaml_handle.get_yaml_data(yaml_handle.servo_file_path)
 
 
 def initMove():
-    """Move the head servos to their configured default positions."""
+    """
+    Move the robot head to its default starting position
+    
+    This function uses the servo values loaded from the configuration files and sends
+    those positions to the pitch and yaw servos. The purpose is to make sure the robots
+    head starts at a consistent head position before starting patrol or scanning. 
+
+    the 1 and 2 is the servo IDs
+
+    """
     Board.setPWMServoPulse(1, servo_data['servo1'], 500)  # pitch
     Board.setPWMServoPulse(2, servo_data['servo2'], 500)  # yaw
 
+    """
+
+    init() and initMove() are connected because init() is the main setup function,
+    and initMove() is one of the specific tasks it performs during startup. First, 
+    init() calls load_config() to load the saved servo positions and color settings 
+    from the configuration files. Then, once those values are available, it calls 
+    initMove() to physically move the robot’s head servos to their default pitch and 
+    yaw positions. In other words, init() handles the overall initialization process, 
+    while initMove() handles the actual head positioning step within that process.
+
+    """
 
 def reset():
-    """Reset runtime state before patrol starts."""
+    """
+    Reset runtime state before patrol starts.
+    
+    This function clears the detected line position and removes any currently selected line
+    following target colors, hence reset. Prepares the program for a fresh start so old values
+    from previous runs don't affect the robots behavior when patrol mode begins again.
+
+    """
     global line_centerx, __target_color
     line_centerx = -1
     __target_color = ()
 
 
 def init():
+    """
+    Perform the main initialization steps for VisualPatrol.
+
+    This function serves as a setup routine for the program. It loads all
+    required configuration data and then moves the robot head to its default
+    position. It is called near the start of the main program so that the
+    robot is ready before line-following begins.
+    
+    """
     print("VisualPatrol Init")
     load_config()
     initMove()
 
+    """
+    init() and initMove() are connected because init() is the main setup function,
+    and initMove() is one of the specific tasks it performs during startup. First, 
+    init() calls load_config() to load the saved servo positions and color settings 
+    from the configuration files. Then, once those values are available, it calls 
+    initMove() to physically move the robot’s head servos to their default pitch and 
+    yaw positions. In other words, init() handles the overall initialization process, 
+    while initMove() handles the actual head positioning step within that process.
+    
+    """
+
 
 def start():
-    """Start patrol mode."""
+    """
+    Start patrol mode and perform the robots opening scan motion.
+    
+    This function resets the current tracking state and then perfroms an initial head sweep
+    and scan for effect and awareness and then enables the global flag. Then once the global, __isRunning
+    becomes true, the robot then begins processing line and using the movement thread to walk along the path. 
+
+    __isRunning is basically a control flag that tells the program whether the robot should currently be active or not. 
+    When start() sets __isRunning = True, it means the patrol system is officially turned on, so the robot can begin 
+    following the line and the movement thread can respond to the detected path. If __isRunning is False, the robot will 
+    not actively patrol or move based on the camera input. So in simple terms, __isRunning acts like an on/off switch for 
+    the robot’s patrol behavior.
+
+    Scroll up to the global variables to refer to them.
+    
+    """
     global __isRunning
     reset()
     look_up_and_scan()  # initial dramatic sweep
@@ -107,12 +185,30 @@ def start():
 
 
 def stop():
+
+    """
+    This stops the patrol behavior without shutting down the entire script.
+
+    It will change the global running flag to false and then after that the robot temporarily
+    stops reacting the line and movement commands, but the rest of the program remians active and can
+    later be restarted when or if needed.
+    
+    """
     global __isRunning
     __isRunning = False
     print("VisualPatrol Stop")
 
 
 def exit():
+
+    """
+    This fully stops the patrol program and places the robot in a safer ending position.
+
+    This function disables the running behavior attempts to play the action group so that 
+    it finishes in a more stable stance. It is used during cleanup when the script is ending making sure
+    the robot does not finish in any awkward state.
+    
+    """
     global __isRunning
     __isRunning = False
     try:
@@ -123,7 +219,15 @@ def exit():
 
 
 def save_follow_start_pose(pitch, yaw):
-    """Persist a startup pose so stock Follow.py starts from this same head pose."""
+    """
+    This saves the head pose where the intruder was detected for use by follow.py.
+
+    When the intruder is found this function writes the current pitch and yaw position values into the servo
+    config file. This is important because the stock Follow.py script usually starts from the servo positions 
+    stored in that file, so updating it allows the handoff to begin from the correct viewing direction instead 
+    of resetting the robot head.
+    
+    """
     try:
         with open(yaml_handle.servo_file_path, 'w', encoding='utf-8') as f:
             f.write(f"servo1: {int(pitch)}\nservo2: {int(yaw)}\n")
@@ -136,7 +240,15 @@ def save_follow_start_pose(pitch, yaw):
 
 
 def look_up_and_scan():
-    """Initial sweep: look up, scan wider than before, then return to default."""
+    """
+    Perform an initial wide head sweep before regular patrol begins.
+
+    This function first tilts the robot's head upward and then slowly sweeps the
+    yaw servo from left to right across a wider range than normal. The purpose
+    is partly visual and partly functional: it makes the robot appear to scan
+    its surroundings before returning to its normal patrol pose.
+    
+    """
     Board.setPWMServoPulse(1, 1500, 500)
     time.sleep(0.5)
     # Wider scan than before
@@ -148,7 +260,16 @@ def look_up_and_scan():
 
 
 def getAreaMaxContour(contours):
-    """Return the largest contour and its area."""
+    """
+    Find and return the largest contour from a list of detected contours.
+
+    This function loops through all contours found in an image mask, calculates
+    the area of each one, and keeps track of the largest valid contour. Very
+    small contours are ignored to reduce noise. The returned contour is useful
+    for identifying the most meaningful detected object, such as a line segment
+    or a red intruder blob.
+    
+    """
     contour_area_max = 0
     area_max_contour = None
     for c in contours:
@@ -161,7 +282,17 @@ def getAreaMaxContour(contours):
 
 
 def move():
-    """Background thread: walk according to the line position."""
+    """
+    Continuously control the robot's walking behavior in a background thread.
+
+    This function does not analyze camera frames directly. Instead, it reads the
+    global value line_centerx, which is calculated by the vision code in run(),
+    and uses that value to decide how the robot should move. If the detected
+    line is close to the center of the image, the robot walks forward. If the
+    line is off to the left or right, the robot turns in that direction to
+    bring itself back into alignment with the path.
+    
+    """
     global line_centerx
     img_centerx = 320
     while True:
@@ -187,7 +318,19 @@ th.start()
 
 
 def run(img):
-    """Process one frame to find the line and update line_centerx."""
+    """
+    Process a single camera frame to detect the target floor line.
+
+    This function is the main line-following vision routine. It resizes and
+    blurs the incoming image, checks several horizontal regions of interest,
+    applies LAB color thresholding to find the chosen line color, and locates
+    the largest contour in each region. It then computes a weighted average of
+    the detected centers and stores the final horizontal line position in the
+    global variable line_centerx. That value is later used by the movement
+    thread to decide whether the robot should go forward, turn left, or turn
+    right.
+    
+    """
     global line_centerx, __target_color
 
     if not __isRunning or __target_color == ():
@@ -259,7 +402,17 @@ def run(img):
 
 
 def follow_intruder(my_camera, start_pitch, start_yaw):
-    """Stop patrol and launch Follow.py from the pose where red was detected."""
+    """
+    Stop patrol mode and hand control over to Follow.py.
+
+    This function is called when a red intruder has been detected during a scan.
+    It first stops normal patrol behavior, keeps the robot head pointed at the
+    exact pitch and yaw where the intruder was seen, and saves that pose to the
+    servo configuration file. After that, it closes the current camera if
+    needed and launches Follow.py so the robot can switch from line-following
+    mode into active intruder tracking mode.
+    
+    """
     global __isRunning
     __isRunning = False
 
@@ -292,7 +445,18 @@ def follow_intruder(my_camera, start_pitch, start_yaw):
 
 
 def scan_for_intruder(my_camera):
-    """Pause patrol, scan slowly for red, then either resume or hand off."""
+    """
+    Temporarily pause line-following and scan the environment for a red intruder.
+
+    This function stops patrol movement, tilts the robot's head upward, and then
+    sweeps the head from side to side while checking fresh camera frames for a
+    red object. Red detection is done using LAB color thresholding and contour
+    analysis. If a large enough red object is found, the function stores the
+    head position where it was detected and immediately transfers control to
+    Follow.py. If no intruder is found, the robot returns its head to the
+    default patrol pose and resumes line-following.
+    
+    """
     global __isRunning, last_detected_pitch, last_detected_yaw
 
     __isRunning = False
@@ -346,6 +510,19 @@ def scan_for_intruder(my_camera):
 
 
 if __name__ == '__main__':
+    '''
+    Main execution block for the VisualPatrol program.
+
+    This section runs only when this file is executed directly. It is responsible
+    for setting up the camera calibration, initializing the robot, starting patrol
+    mode, selecting the line color to follow, and opening the camera feed. After
+    setup is complete, the program enters its main loop, where it continuously
+    reads frames, processes them for line-following, updates the live display,
+    and periodically pauses to scan for a red intruder. It also handles safe
+    shutdown by closing the camera feed, destroying OpenCV windows, and calling
+    exit() when the program ends.
+    
+    '''
     from CameraCalibration.CalibrationConfig import calibration_param_path
 
     # Camera calibration
@@ -401,4 +578,3 @@ if __name__ == '__main__':
             pass
         cv2.destroyAllWindows()
         exit()
-
