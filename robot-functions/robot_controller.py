@@ -5,14 +5,7 @@ import threading
 
 # These imports depend on your TonyPi SDK structure.
 # Adjust as needed.
-try:
-    from ActionGroupControl import runActionGroup, stopAction
-except:
-    def runActionGroup(name, times=1):
-        print(f"[TonyPi] (mock) Running action group: {name}")
-
-    def stopAction():
-        print("[TonyPi] (mock) Stopping action group")
+import hiwonder.ActionGroupControl as AGC
 
 class TonyPiController:
     def __init__(self):
@@ -32,7 +25,7 @@ class TonyPiController:
         print(f"[TonyPiController] Running action group: {group_name}")
 
         try:
-            runActionGroup(group_name, repeat)
+            AGC.runActionGroup(group_name)
         except Exception as e:
             print(f"[TonyPiController] ERROR running action group: {e}")
 
@@ -83,7 +76,7 @@ class TonyPiController:
             self._stop_flag = True
 
         try:
-            stopAction()
+            AGC.stopAction()
         except:
             pass
 
@@ -94,7 +87,7 @@ class TonyPiController:
         for _ in range(4):
             if self._stop_requested():
                 return
-            runActionGroup("walk", 1)
+            AGC.runActionGroup("walk")
             time.sleep(0.5)
 
     def _script_follow(self):
@@ -102,9 +95,9 @@ class TonyPiController:
         for _ in range(10):
             if self._stop_requested():
                 return
-            runActionGroup("look_left", 1)
+            AGC.runActionGroup("look_left")
             time.sleep(0.3)
-            runActionGroup("look_right", 1)
+            AGC.runActionGroup("look_right")
             time.sleep(0.3)
 
     def _script_chase(self):
@@ -112,7 +105,7 @@ class TonyPiController:
         for _ in range(6):
             if self._stop_requested():
                 return
-            runActionGroup("run", 1)
+            AGC.runActionGroup("run")
             time.sleep(0.2)
 
     # ---------------- INTERNAL ---------------- #

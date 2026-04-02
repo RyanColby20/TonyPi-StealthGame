@@ -9,5 +9,5 @@ mqtt:
     - "robot/testbot/stop"
 
 startup:
-  initial_script: "patrol" 
+  initial_script: "" 
  
