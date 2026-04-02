@@ -13,7 +13,7 @@ class RobotComm:
         self.on_message_callback = on_message
         self.heartbeat_interval = heartbeat_interval
 
-        self.client = mqtt.Client(client_name)
+        self.client = mqtt.Client(client_id=client_name)
         self.client.on_connect = self._on_connect
         self.client.on_disconnect = self._on_disconnect
         self.client.on_message = on_message
