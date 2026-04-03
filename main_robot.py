@@ -4,12 +4,12 @@ import yaml
 import sys
 import os 
 
-from robot_comm import RobotComm
-from robot_role import RobotRole
-from robot_controller_fake import TonyPiController  # your movement API
+from robot_functions.robot_comm import RobotComm
+from robot_functions.robot_role import RobotRole
+from robot_functions.robot_controller_dummy import TonyPiController  # your movement API
 
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from hiwonder.yaml_handle import load_robot_config
+
+from HiwonderSDK.hiwonder.yaml_handle import load_robot_config
 
 # --------- MQTT on message ------------ #
 

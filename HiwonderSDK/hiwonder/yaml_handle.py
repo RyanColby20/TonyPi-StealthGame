@@ -12,7 +12,7 @@ import yaml
 
 # Determine the project root (two directories up from this file)
 _pkg_dir = os.path.dirname(__file__)
-_project_root = os.path.abspath(os.path.join(_pkg_dir, '..'))
+_project_root = os.path.abspath(os.path.join(_pkg_dir, '..', '..'))
 
 # Paths to the servo and colour configuration YAML files.  The
 # original HiWonder SDK stores these at `/home/pi/TonyPi/lab_config.yaml`

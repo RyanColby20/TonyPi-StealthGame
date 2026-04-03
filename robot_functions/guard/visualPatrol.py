@@ -24,11 +24,11 @@ import threading
 import subprocess
 import numpy as np
 
-import hiwonder.Misc as Misc
+import HiwonderSDK.hiwonder.Misc as Misc
 import hiwonder.Board as Board
-import hiwonder.Camera as Camera
-import hiwonder.ActionGroupControl as AGC
-import hiwonder.yaml_handle as yaml_handle
+import HiwonderSDK.hiwonder.Camera as Camera
+import HiwonderSDK.hiwonder.ActionGroupControl as AGC
+import HiwonderSDK.hiwonder.yaml_handle as yaml_handle
 
 # -----------------------------------------------------------------------------
 # Python version check

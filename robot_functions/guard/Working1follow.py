@@ -1,7 +1,3 @@
-'''
-******* WILL NOT LOOK LEFT PAST THE CENTER LINE!!!!!!! *******
-'''
-
 #!/usr/bin/python3
 # coding=utf8
 import sys
@@ -11,13 +7,12 @@ import math
 import threading
 import numpy as np
 import pandas as pd
-from hiwonder.PID import PID
-import hiwonder.Misc as Misc
+from HiwonderSDK.hiwonder.PID import PID
+import HiwonderSDK.hiwonder.Misc as Misc
 import hiwonder.Board as Board
-import hiwonder.Camera as Camera
-import hiwonder.ActionGroupControl as AGC
-import hiwonder.yaml_handle as yaml_handle
-import time
+import HiwonderSDK.hiwonder.Camera as Camera
+import HiwonderSDK.hiwonder.ActionGroupControl as AGC
+import HiwonderSDK.hiwonder.yaml_handle as yaml_handle
 from CameraCalibration.CalibrationConfig import *
 
 #跟随 
@@ -65,7 +60,6 @@ def setBallTargetColor(target_color):
 def initMove():
     Board.setPWMServoPulse(1, servo_data['servo1'], 500)
     Board.setPWMServoPulse(2, servo_data['servo2'], 500)
-    Board.setPWMServoPulse(1,1500,500)
 
 load_config()
 
@@ -144,53 +138,22 @@ def getAreaMaxContour(contours):
 CENTER_X = 320
 circle_radius = 0
 #执行动作组
-import time
-HEAD_TILT_SERVO_ID = 2
-HEAD_UP_PULSE = 2000
-MOVE_TIME_MS = 300
-
-def move(required_detect_seconds=15.0):
+def move():
     
-    Board.setPWMServoPulse(HEAD_TILT_SERVO_ID, HEAD_UP_PULSE, MOVE_TIME_MS)
-    time.sleep(MOVE_TIME_MS / 1000)
-    detect_start = None  # when uninterrupted detection began
-
     while True:
-        if not __isRunning:
-            detect_start = None  # treat as interruption
-            time.sleep(0.01)
-            continue
-
-        # --- detection logic ---
-        if centerX >= 0:
-            AGC.runActionGroup('stand')
-            # start uninterrupted timer if we just regained detection
-            if detect_start is None:
-                detect_start = time.monotonic()
-
-            # if uninterrupted detection has lasted long enough, stop/return
-            if (time.monotonic() - detect_start) >= required_detect_seconds:
-                AGC.runActionGroup('twist')
-                print("GUARD IS A WINNER")
-                # Optional "stop" action if your robot has one:
-                # AGC.runActionGroup('stand') or AGC.stopActionGroup() depending on your SDK
-                return True
-
-            # --- your existing movement logic (unchanged) ---
-            if centerX - CENTER_X > 100 or x_dis - servo_data['servo2'] < -80:
-                AGC.runActionGroup('turn_right_small_step')
-            elif centerX - CENTER_X < -100 or x_dis - servo_data['servo2'] > 80:
-                AGC.runActionGroup('turn_left_small_step')
-            elif 100 > circle_radius > 0:
-                AGC.runActionGroup('go_forward')
-            elif 180 < circle_radius:
-                AGC.runActionGroup('back_fast')
+        if __isRunning:
+            if centerX >= 0:
+                if centerX - CENTER_X > 100 or x_dis - servo_data['servo2'] < -80:  # 不在中心，根据方向让机器人转向一步
+                    AGC.runActionGroup('turn_right_small_step')
+                elif centerX - CENTER_X < -100 or x_dis - servo_data['servo2'] > 80:
+                    AGC.runActionGroup('turn_left_small_step')                        
+                elif 100 > circle_radius > 0:
+                    AGC.runActionGroup('go_forward')
+                elif 180 < circle_radius:
+                    AGC.runActionGroup('back_fast')
             else:
                 time.sleep(0.01)
-
         else:
-            # lost detection → reset timer
-            detect_start = None
             time.sleep(0.01)
 
 #启动动作的线程

@@ -5,7 +5,7 @@ import threading
 
 # These imports depend on your TonyPi SDK structure.
 # Adjust as needed.
-import hiwonder.ActionGroupControl as AGC
+import HiwonderSDK.hiwonder.ActionGroupControl as AGC
 
 class TonyPiController:
     def __init__(self):
