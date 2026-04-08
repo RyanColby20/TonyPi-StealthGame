@@ -7,9 +7,12 @@ import os
 from robot_functions.robot_comm import RobotComm
 from robot_functions.robot_role import RobotRole
 from robot_functions.robot_controller import TonyPiController  # your movement API
-
-
 from HiwonderSDK.hiwonder.yaml_handle import load_robot_config
+
+from pathlib import Path
+
+sdk_path = Path(__file__).resolve().parent.parent / "HiWonderSDK" / "hiwonder"
+sys.path.insert(0, str(sdk_path))
 
 # --------- MQTT on message ------------ #
 
