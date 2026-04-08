@@ -2,6 +2,9 @@
 This script will clone the repo and pull if it is already cloned
 Note that *.yaml is part of .gitignore
 
+RUN ME IN THE HOME DIRECTORY
+TO BE MORE SPECIFIC: THE PARENT DIRECTORY OF TonyPi ON THE ROBOTS
+
 '''
 import os
 import subprocess
