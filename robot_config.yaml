@@ -1,0 +1,13 @@
+robot:
+  client_name: "testbot"
+  broker_ip: "localhost"
+
+mqtt:
+  subscriptions:
+    - "robot/testbot/action_group"
+    - "robot/testbot/script"
+    - "robot/testbot/stop"
+
+startup:
+  initial_script: "" 
+ 
