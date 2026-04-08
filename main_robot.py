@@ -1,4 +1,15 @@
 # main_robot.py
+'''
+This is the main file to run on each robot.
+The robot will initialize into an idle and listen mode, awaiting commands.
+Note that behavior and properties used by this file are in robot_config.yaml.
+This includes an initial script to execute on startup of this (main_robot) file.
+
+Note if you are having connection rejected issues with MQTT:
+the broker IP should almost always be 192.168.137.1
+if not, check the ip on the broker with ipconfig.
+'''
+
 import time
 import yaml
 import sys
@@ -6,7 +17,7 @@ import os
 
 from robot_functions.robot_comm import RobotComm
 from robot_functions.robot_role import RobotRole
-from robot_functions.robot_controller import TonyPiController  # your movement API
+from robot_functions.robot_controller_dummy import TonyPiController  # your movement API
 from HiwonderSDK.yaml_handle import load_robot_config
 
 from pathlib import Path
