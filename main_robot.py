@@ -6,7 +6,7 @@ import os
 
 from robot_functions.robot_comm import RobotComm
 from robot_functions.robot_role import RobotRole
-from robot_functions.robot_controller_dummy import TonyPiController  # your movement API
+from robot_functions.robot_controller import TonyPiController  # your movement API
 
 
 from HiwonderSDK.hiwonder.yaml_handle import load_robot_config
