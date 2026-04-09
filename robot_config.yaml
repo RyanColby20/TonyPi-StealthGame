@@ -1,6 +1,6 @@
 robot:
   client_name: "testbot"
-  broker_ip: "localhost"
+  broker_ip: "192.168.137.1"
 
 mqtt:
   subscriptions:
