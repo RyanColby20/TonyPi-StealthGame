@@ -108,6 +108,76 @@ class TonyPiController:
             AGC.runActionGroup("run")
             time.sleep(0.2)
 
+    # ---------------------------------------------------------
+    # DRIVE FUNCTION FOR PLAYER CONTROL
+    # ---------------------------------------------------------
+    def drive(self, input_data):
+        """
+        input_data: {"x": float, "y": float}
+        x = left/right turn (-1 to 1)
+        y = forward/backward (-1 to 1)
+        """
+
+        if input_data is None:
+            self.stop_all()
+            return
+
+        x = input_data.get("x", 0)
+        y = input_data.get("y", 0)
+
+        # Deadzone to prevent jitter
+        if abs(x) < 0.15:
+            x = 0
+        if abs(y) < 0.15:
+            y = 0
+
+        # If no movement → stop
+        if x == 0 and y == 0:
+            if self.last_motion != "STOP":
+                self.stop_all()
+                self.last_motion = "STOP"
+            return
+
+        # Determine motion type
+        if y > 0:
+            motion = "FORWARD"
+        elif y < 0:
+            motion = "BACKWARD"
+        elif x > 0:
+            motion = "TURN_RIGHT"
+        elif x < 0:
+            motion = "TURN_LEFT"
+        else:
+            motion = "STOP"
+
+        # Prevent spamming the same action group
+        now = time.time()
+        if motion == self.last_motion and (now - self.last_time) < 0.25:
+            return
+
+        self.last_motion = motion
+        self.last_time = now
+
+        # -----------------------------------------------------
+        # MAP MOTION TO ACTION GROUPS
+        # -----------------------------------------------------
+        if motion == "FORWARD":
+            # You can tune speed by selecting different action groups
+            self.run_action_group("go_forward")
+
+        elif motion == "BACKWARD":
+            self.run_action_group("go_backward")
+
+        elif motion == "TURN_RIGHT":
+            self.run_action_group("turn_right")
+
+        elif motion == "TURN_LEFT":
+            self.run_action_group("turn_left")
+
+        else:
+            self.stop_all()
+
+
     # ---------------- INTERNAL ---------------- #
 
     def _stop_requested(self):
