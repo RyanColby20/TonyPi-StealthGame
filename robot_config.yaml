@@ -7,6 +7,8 @@ mqtt:
     - "robot/testbot/action_group"
     - "robot/testbot/script"
     - "robot/testbot/stop"
+    - "robot/testbot/heartbeat"
+    - "robot/testbot/status"
 
 startup:
   initial_script: "" 

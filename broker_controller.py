@@ -9,13 +9,16 @@ import json
 import time
 
 class BrokerController:
-    def __init__(self, client_name, broker_ip):
+    def __init__(self, client_name, broker_ip, on_robot_seen=None):
+        self.on_robot_seen = on_robot_seen 
+
         self.comm = RobotComm(
             client_name=client_name,
             broker_ip=broker_ip,
-            subscriptions=[],      # broker mostly publishes; can add subs later
-            on_message=None,
-            heartbeat_interval=5.0 # optional, or disable if you want
+            subscriptions=["robot/+/heartbeat"],      # broker mostly publishes; can add subs later
+            on_message=self._on_message,
+            heartbeat_interval=5.0, # optional, or disable if you want
+            heartbeat_prefix="controller"
         )
         self.comm.connect()
 
@@ -68,6 +71,18 @@ class BrokerController:
             topic = f"robot/{name}/stop"
             self.comm.publish(topic, "STOP")
             print(f"[BROKER] {name} → STOP")
+
+    # ------ subscription handler ------ #
+    def _on_message(self, client, userdata, msg):
+        print("[BROKER] Received:", msg.topic, msg.payload)
+        topic = msg.topic
+
+        if topic.startswith("robot/") and topic.endswith('/heartbeat'):
+            robot_name = topic.split("/")[1]
+            if self.on_robot_seen:
+                self.on_robot_seen(robot_name)
+
+
 
     # ---------- OPTIONAL: BROADCAST HELPERS ---------- #
 

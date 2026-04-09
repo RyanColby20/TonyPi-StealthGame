@@ -6,12 +6,13 @@ import threading
 
 
 class RobotComm:
-    def __init__(self, client_name, broker_ip, subscriptions=None, on_message=None, heartbeat_interval=2.0):
+    def __init__(self, client_name, broker_ip, subscriptions=None, on_message=None, heartbeat_interval=2.0, heartbeat_prefix="robot"):
         self.client_name = client_name
         self.broker_ip = broker_ip
         self.subscriptions = subscriptions or []
         self.on_message_callback = on_message
         self.heartbeat_interval = heartbeat_interval
+        self.heartbeat_prefix = heartbeat_prefix
 
         self.client = mqtt.Client(client_id=client_name)
         self.client.on_connect = self._on_connect
@@ -68,7 +69,7 @@ class RobotComm:
         """Send periodic heartbeat messages."""
         while not self._stop_flag:
             if self.connected:
-                topic = f"robot/{self.client_name}/heartbeat"
+                topic = f"{self.heartbeat_prefix}/{self.client_name}/heartbeat"
                 payload = str(time.time())
                 self.client.publish(topic, payload)
             time.sleep(self.heartbeat_interval)
