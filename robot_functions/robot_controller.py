@@ -5,6 +5,7 @@ import threading
 import os
 import sys
 import subprocess
+from pathlib import Path
 
 # These imports depend on your TonyPi SDK structure.
 # Adjust as needed.
@@ -75,12 +76,13 @@ class TonyPiController:
         }
         return scripts.get(name)
 
-    def _run_external_script(self, script_path):
+    def _run_external_script(self, relative_path):
         """
         Executes a Python script located at the path given
         """
+        script_path = Path.cwd() / relative_path
         
-        if not os.path.isfile(script_path):
+        if not script_path.isfile(script_path):
             raise FileNotFoundError(f"Script file not found: {script_path}")
 
         print(f"[TonyPiController] Executing external script: {script_path}")
