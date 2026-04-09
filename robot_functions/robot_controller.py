@@ -71,29 +71,22 @@ class TonyPiController:
             "patrol": self._script_patrol,
             "follow": self._script_follow,
             "chase": self._script_chase,
-            "intruder": lambda: self._run_external_script("/robot_functions/intruder/intruder_main.py"),
-            "guard": lambda: self._run_external_script("/robot_functions/guard/guard_main.py"),
+            "intruder": lambda: self._run_external_script("robot_functions.intruder.intruder_main"),
+            "guard": lambda: self._run_external_script("robot_functions.guard.guard_main"),
         }
         return scripts.get(name)
 
-    def _run_external_script(self, relative_path):
+    def _run_external_script(self, module_name):
         """
-        Executes a Python script located at the path given
+        Executes a Python module like:
+            robot_functions.intruder.intruder_main
         """
-        relative_path = relative_path.lstrip("/")
-        project_root = Path.cwd()
-        script_path = project_root / relative_path
-        
-        if not script_path.is_file():
-            raise FileNotFoundError(f"Script file not found: {script_path}")
+        print(f"[TonyPiController] Executing module: {module_name}")
 
-        print(f"[TonyPiController] Executing external script: {script_path}")
-
-        # Use subprocess so the script runs independently
         subprocess.Popen(
-            [sys.executable, script_path],
-            cwd=str(project_root)
-            )
+            [sys.executable, "-m", module_name],
+            cwd=str(Path.cwd())
+        )
 
     # ---------------- STOP EVERYTHING ---------------- #
 
