@@ -81,7 +81,8 @@ class TonyPiController:
         Executes a Python script located at the path given
         """
         relative_path = relative_path.lstrip("/")
-        script_path = Path.cwd() / relative_path
+        project_root = Path.cwd()
+        script_path = project_root / relative_path
         
         if not script_path.is_file():
             raise FileNotFoundError(f"Script file not found: {script_path}")
@@ -89,7 +90,10 @@ class TonyPiController:
         print(f"[TonyPiController] Executing external script: {script_path}")
 
         # Use subprocess so the script runs independently
-        subprocess.Popen([sys.executable, script_path])
+        subprocess.Popen(
+            [sys.executable, script_path],
+            cwd=str(project_root)
+            )
 
     # ---------------- STOP EVERYTHING ---------------- #
 
