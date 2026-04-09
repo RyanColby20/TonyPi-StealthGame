@@ -2,6 +2,9 @@
 
 import time
 import threading
+import os
+import sys
+import subprocess
 
 # These imports depend on your TonyPi SDK structure.
 # Adjust as needed.
@@ -33,35 +36,64 @@ class TonyPiController:
 
     def run_script(self, script_name):
         """
-        Runs a high-level script (patrol, follow, chase, etc.)
-        You can map script names to functions here.
+        Runs a high-level script (patrol, follow, chase, intruder, guard, etc.)
+        If the script name is not a built-in, we attempt to run a Python file
+        based on a filepath convention.
         """
         print(f"[TonyPiController] Running script: {script_name}")
 
         script = self._get_script(script_name)
-        if script is None:
-            print(f"[TonyPiController] Unknown script: {script_name}")
-            return
 
         with self._lock:
             self._stop_flag = False
 
+        if script is not None:
+            # Built-in Python function
+            try:
+                script()
+            except Exception as e:
+                print(f"[TonyPiController] ERROR running script: {e}")
+            return
+
+        # Otherwise attempt to run a file-based script
         try:
-            script()
+            self._run_external_script(script_name)
         except Exception as e:
-            print(f"[TonyPiController] ERROR running script: {e}")
+            print(f"[TonyPiController] ERROR running external script '{script_name}': {e}")
 
     def _get_script(self, name):
         """
         Map script names to actual functions.
-        Replace these with your real TonyPi behaviors.
+        If not found, return None so run_script() falls back to file execution.
         """
         scripts = {
             "patrol": self._script_patrol,
             "follow": self._script_follow,
             "chase": self._script_chase,
+            "intruder": lambda: self._run_external_script("intruder"),
+            "guard": lambda: self._run_external_script("guard"),
         }
         return scripts.get(name)
+
+    def _run_external_script(self, name):
+        """
+        Executes a Python script located at:
+            /robot_functions/<name>/<name>_main.py
+
+        Example:
+            intruder -> /robot_functions/intruder/intruder_main.py
+            guard    -> /robot_functions/guard/guard_main.py
+        """
+        base_dir = "/robot_functions"
+        script_path = os.path.join(base_dir, name, f"{name}_main.py")
+
+        if not os.path.isfile(script_path):
+            raise FileNotFoundError(f"Script file not found: {script_path}")
+
+        print(f"[TonyPiController] Executing external script: {script_path}")
+
+        # Use subprocess so the script runs independently
+        subprocess.Popen([sys.executable, script_path])
 
     # ---------------- STOP EVERYTHING ---------------- #
 
