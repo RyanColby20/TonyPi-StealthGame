@@ -82,7 +82,7 @@ class TonyPiController:
         """
         script_path = Path.cwd() / relative_path
         
-        if not script_path.isfile(script_path):
+        if not script_path.isfile():
             raise FileNotFoundError(f"Script file not found: {script_path}")
 
         print(f"[TonyPiController] Executing external script: {script_path}")
