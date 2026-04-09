@@ -310,7 +310,7 @@ def scan_for_intruder(my_camera):
 
 if __name__ == '__main__':
     # Run visual patrol as a standalone script.
-    from CameraCalibration.CalibrationConfig import calibration_param_path
+    from Functions.CameraCalibration.CalibrationConfig import calibration_param_path
 
     # Camera calibration
     param_data = np.load(calibration_param_path + '.npz')
