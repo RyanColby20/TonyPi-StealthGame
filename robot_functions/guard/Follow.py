@@ -14,7 +14,7 @@ import HiwonderSDK.Camera as Camera
 import HiwonderSDK.ActionGroupControl as AGC
 import HiwonderSDK.yaml_handle as yaml_handle
 import time
-from CameraCalibration.CalibrationConfig import *
+from Functions.CameraCalibration.CalibrationConfig import *
 
 # Follow
 
