@@ -80,6 +80,7 @@ class TonyPiController:
         """
         Executes a Python script located at the path given
         """
+        relative_path = relative_path.lstrip("/")
         script_path = Path.cwd() / relative_path
         
         if not script_path.is_file():
