@@ -70,23 +70,16 @@ class TonyPiController:
             "patrol": self._script_patrol,
             "follow": self._script_follow,
             "chase": self._script_chase,
-            "intruder": lambda: self._run_external_script("intruder"),
-            "guard": lambda: self._run_external_script("guard"),
+            "intruder": lambda: self._run_external_script("/robot_functions/intruder/intruder_main.py"),
+            "guard": lambda: self._run_external_script("/robot_functions/guard/guard_main.py"),
         }
         return scripts.get(name)
 
-    def _run_external_script(self, name):
+    def _run_external_script(self, script_path):
         """
-        Executes a Python script located at:
-            /robot_functions/<name>/<name>_main.py
-
-        Example:
-            intruder -> /robot_functions/intruder/intruder_main.py
-            guard    -> /robot_functions/guard/guard_main.py
+        Executes a Python script located at the path given
         """
-        base_dir = "/robot_functions"
-        script_path = os.path.join(base_dir, name, f"{name}_main.py")
-
+        
         if not os.path.isfile(script_path):
             raise FileNotFoundError(f"Script file not found: {script_path}")
 
