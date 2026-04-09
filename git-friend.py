@@ -10,7 +10,7 @@ import os
 import subprocess
 
 REPO_URL = "https://github.com/RyanColby20/TonyPi-StealthGame.git"
-BRANCH = "Network_Test"
+BRANCH = "main"
 TARGET_DIR = os.getcwd()
 REPO_NAME = "TonyPi"
 
