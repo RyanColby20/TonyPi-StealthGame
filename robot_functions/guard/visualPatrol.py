@@ -1,30 +1,42 @@
 #!/usr/bin/python3
 # coding=utf8
-#!/usr/bin/python3
-# coding=utf8
 """
-Visual patrol script for the TonyPi/HiWonder guard robot.
+VisualPatrol rewritten to use Follow.py as a reusable module instead of
+launching it as a separate process.
+
+Behavior:
+- Patrols a floor line (default black)
+- Starts by looking down at the floor
+- Periodically pauses to look up and scan for a red intruder
+- After scanning, looks back down at the floor
+- If red is detected, switches into Follow mode in-process
+- After losing the intruder, returns to patrol mode and looks back down
 """
 
 import sys
 import cv2
 import time
 import threading
-import subprocess
 import numpy as np
 
-import HiwonderSDK.Misc as Misc
-import HiwonderSDK.Board as Board
-import HiwonderSDK.Camera as Camera
-import HiwonderSDK.ActionGroupControl as AGC
-import HiwonderSDK.yaml_handle as yaml_handle
+import hiwonder.Misc as Misc
+import hiwonder.Board as Board
+import hiwonder.Camera as Camera
+import hiwonder.ActionGroupControl as AGC
+import hiwonder.yaml_handle as yaml_handle
 
-# Exit if not using Python 3
+import Follow
+
+# -----------------------------------------------------------------------------
+# Python version check
+# -----------------------------------------------------------------------------
 if sys.version_info.major == 2:
     print('Please run this program with python3!')
     sys.exit(0)
 
-# Runtime state
+# -----------------------------------------------------------------------------
+# Global state
+# -----------------------------------------------------------------------------
 __target_color = ('black',)
 lab_data = None
 servo_data = None
@@ -35,9 +47,23 @@ line_centerx = -1
 mapx = None
 mapy = None
 
-# Last intruder pose
+# Pose where the intruder was seen
 last_detected_pitch = None
 last_detected_yaw = None
+
+# Dedicated floor-looking pose
+# Adjust FLOOR_PITCH if needed:
+# lower value = more downward on many TonyPi setups
+FLOOR_PITCH = 1000
+FLOOR_YAW = 1500
+
+# Mode control
+current_mode = 'patrol'   # 'patrol' or 'follow'
+follow_start_time = 0.0
+follow_visible_since = None
+last_red_seen_time = 0.0
+GAME_OVER_SECONDS = 10.0
+RED_LOST_TIMEOUT = 1.0
 
 # Regions of interest for line following
 roi = [
@@ -50,94 +76,94 @@ size = (640, 480)
 
 
 def setLineTargetColor(target_color):
-    # Set the line color to track.
+    """Set the target line colour as a tuple of colour names."""
     global __target_color
     __target_color = target_color
     return (True, (), 'SetVisualPatrolColor')
 
 
 def load_config():
-    # Load LAB and servo settings from YAML.
+    """Load LAB colour thresholds and servo positions from YAML files."""
     global lab_data, servo_data
     lab_data = yaml_handle.get_yaml_data(yaml_handle.lab_file_path)
     servo_data = yaml_handle.get_yaml_data(yaml_handle.servo_file_path)
 
 
 def initMove():
-    # Move the head to its default pose.
+    """Move the head servos to their configured default positions."""
     Board.setPWMServoPulse(1, servo_data['servo1'], 500)  # pitch
     Board.setPWMServoPulse(2, servo_data['servo2'], 500)  # yaw
 
+
+def look_down_at_floor():
+    """Point head down toward the floor."""
+    Board.setPWMServoPulse(1, FLOOR_PITCH, 500)  # pitch down
+    Board.setPWMServoPulse(2, FLOOR_YAW, 500)    # yaw center
+    time.sleep(0.5)
+
+
 def reset():
-    # Reset patrol state.
+    """Reset runtime state before patrol starts."""
     global line_centerx, __target_color
     line_centerx = -1
     __target_color = ()
 
 
 def init():
-    # Load config and set default pose.
     print("VisualPatrol Init")
     load_config()
     initMove()
 
 
-
-
 def start():
-    # Start patrol mode
-    global __isRunning
+    """Start patrol mode."""
+    global __isRunning, current_mode
     reset()
-    look_up_and_scan()  # initial dramatic sweep
+    look_down_at_floor()   # begin by looking at the floor
+    look_up_and_scan()     # do the startup scan
+    look_down_at_floor()   # return to the floor after scanning
     __isRunning = True
+    current_mode = 'patrol'
     print("VisualPatrol Start")
 
 
 def stop():
-    # Stop patrol mode.
     global __isRunning
     __isRunning = False
     print("VisualPatrol Stop")
 
 
 def exit():
-    # Stop patrol and return to a safe pose.
     global __isRunning
     __isRunning = False
     try:
+        Follow.stop()
+    except Exception:
+        pass
+    try:
         AGC.runActionGroup('stand_low')
+    except Exception:
+        pass
+    try:
+        Board.setPWMServoPulse(1, FLOOR_PITCH, 500)
+        Board.setPWMServoPulse(2, FLOOR_YAW, 500)
     except Exception:
         pass
     print("VisualPatrol Exit")
 
 
-def save_follow_start_pose(pitch, yaw):
-    # Save the head pose for Follow.py.
-    try:
-        with open(yaml_handle.servo_file_path, 'w', encoding='utf-8') as f:
-            f.write(f"servo1: {int(pitch)}\nservo2: {int(yaw)}\n")
-        servo_data['servo1'] = int(pitch)
-        servo_data['servo2'] = int(yaw)
-        return True
-    except Exception as e:
-        print(f"Could not save Follow.py start pose: {e}")
-        return False
-
-
 def look_up_and_scan():
-    # Do an opening head sweep.
+    """Initial sweep: look up, scan wide, then return to floor."""
     Board.setPWMServoPulse(1, 1500, 500)
     time.sleep(0.5)
-    # Wider scan than before
     for pos in range(servo_data['servo2'] - 350, servo_data['servo2'] + 351, 75):
         Board.setPWMServoPulse(2, pos, 400)
         time.sleep(0.35)
-    Board.setPWMServoPulse(1, servo_data['servo1'], 500)
-    Board.setPWMServoPulse(2, servo_data['servo2'], 500)
+    look_down_at_floor()
 
 
 def getAreaMaxContour(contours):
-    # Return the largest valid contour.
+    """Return the largest contour and its area."""
     contour_area_max = 0
     area_max_contour = None
     for c in contours:
@@ -150,11 +176,11 @@ def getAreaMaxContour(contours):
 
 
 def move():
-    # Move the robot based on line position.
+    """Background thread: walk according to the line position during patrol only."""
     global line_centerx
     img_centerx = 320
     while True:
-        if __isRunning:
+        if __isRunning and current_mode == 'patrol':
             if line_centerx != -1:
                 diff = line_centerx - img_centerx
                 if abs(diff) <= 50:
@@ -176,10 +202,10 @@ th.start()
 
 
 def run(img):
-    # Process a frame for line following.
+    """Process one frame to find the line and update line_centerx."""
     global line_centerx, __target_color
 
-    if not __isRunning or __target_color == ():
+    if not __isRunning or __target_color == () or current_mode != 'patrol':
         return img
 
     img_copy = img.copy()
@@ -211,7 +237,7 @@ def run(img):
         if dilated is None:
             continue
 
-        # ignore noisy far-left / far-right areas
+        # Ignore noisy far-left / far-right areas
         dilated[:, 0:160] = 0
         dilated[:, 480:640] = 0
 
@@ -247,8 +273,96 @@ def run(img):
     return img
 
 
+def start_follow_mode(start_pitch, start_yaw):
+    """Switch from patrol mode into Follow mode without launching another script."""
+    global __isRunning, current_mode, follow_start_time, follow_visible_since, last_red_seen_time
+
+    __isRunning = False
+    current_mode = 'follow'
+    follow_start_time = time.time()
+    now = time.time()
+    follow_visible_since = now
+    last_red_seen_time = now
+
+    try:
+        Follow.load_config()
+
+        Follow.servo_data['servo1'] = int(start_pitch)
+        Follow.servo_data['servo2'] = int(start_yaw)
+
+        Follow.x_dis = int(start_yaw)
+        Follow.y_dis = int(start_pitch)
+    except Exception as e:
+        print(f'Warning: could not fully sync Follow state: {e}')
+
+    try:
+        Board.setPWMServoPulse(1, int(start_pitch), 150)
+        Board.setPWMServoPulse(2, int(start_yaw), 150)
+    except Exception:
+        pass
+
+    Follow.start()
+    Follow.setBallTargetColor(('red',))
+
+    print('Switched to Follow mode (in-process).')
+
+
+def stop_follow_mode():
+    """Return from Follow mode back to Visual Patrol mode."""
+    global __isRunning, current_mode, follow_visible_since, last_red_seen_time
+
+    try:
+        Follow.stop()
+    except Exception:
+        pass
+
+    look_down_at_floor()
+
+    current_mode = 'patrol'
+    __isRunning = True
+    follow_visible_since = None
+    last_red_seen_time = 0.0
+    print('Returned to Visual Patrol mode.')
+
+
+def red_visible(frame, min_area=200):
+    """Return True if a sufficiently large red blob is visible in the frame."""
+    if frame is None or lab_data is None or 'red' not in lab_data:
+        return False
+
+    frame_lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+    red_min = tuple(lab_data['red']['min'])
+    red_max = tuple(lab_data['red']['max'])
+    mask = cv2.inRange(frame_lab, red_min, red_max)
+    eroded = cv2.erode(mask, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))
+    dilated = cv2.dilate(eroded, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))
+    contours = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[-2]
+    contour, area = getAreaMaxContour(contours)
+    return contour is not None and area > min_area
+
+
+def trigger_game_over():
+    """Twist, print game over, and stop the program."""
+    global __isRunning, current_mode
+    try:
+        AGC.runActionGroup('twist')
+        time.sleep(3.0)
+    except Exception as e:
+        print(f"Warning: could not run twist action group: {e}")
+    print('Intruder Detected GAME OVER')
+
+    try:
+        Follow.stop()
+    except Exception:
+        pass
+
+    __isRunning = False
+    current_mode = 'game_over'
+    raise SystemExit
+
+
 def scan_for_intruder(my_camera):
-    # Pause patrol and scan for a red intruder.
+    """Pause patrol, scan slowly for red, then either resume or switch to follow mode."""
     global __isRunning, last_detected_pitch, last_detected_yaw
 
     __isRunning = False
@@ -260,7 +374,7 @@ def scan_for_intruder(my_camera):
 
     intruder_found = False
 
-    # Much wider, slower, more dramatic scan
+    # Wide, slower scan
     for pos in range(servo_data['servo2'] - 450, servo_data['servo2'] + 451, 80):
         Board.setPWMServoPulse(2, pos, 250)
         time.sleep(0.1)
@@ -272,7 +386,6 @@ def scan_for_intruder(my_camera):
         if mapx is not None and mapy is not None:
             frame = cv2.remap(frame, mapx, mapy, cv2.INTER_LINEAR)
 
-        # Keep laptop preview updating during scan so the feed does not appear frozen.
         cv2.imshow('result_image', frame)
         cv2.waitKey(1)
 
@@ -284,33 +397,22 @@ def scan_for_intruder(my_camera):
         contour, area = getAreaMaxContour(contours)
 
         if contour is not None and area > 200:
-            print("INTRUDER DETECTED")
+            print('INTRUDER DETECTED')
             intruder_found = True
             last_detected_pitch = scan_pitch
             last_detected_yaw = pos
-
-            try:
-                Board.setPWMServoPulse(1, int(last_detected_pitch), 150)
-                Board.setPWMServoPulse(2, int(last_detected_yaw), 150)
-            except Exception:
-                pass
-
-            save_follow_start_pose(last_detected_pitch, last_detected_yaw)
-            return True, (last_detected_pitch, last_detected_yaw)
+            start_follow_mode(last_detected_pitch, last_detected_yaw)
+            break
 
     if not intruder_found:
-        # Return to patrol head pose and resume.
-        Board.setPWMServoPulse(1, servo_data['servo1'], 500)
-        Board.setPWMServoPulse(2, servo_data['servo2'], 500)
-        time.sleep(0.5)
+        look_down_at_floor()
         __isRunning = True
 
-    return False, None
+    return intruder_found
 
 
 if __name__ == '__main__':
-    # Run visual patrol as a standalone script.
-    from Functions.CameraCalibration.CalibrationConfig import calibration_param_path
+    from CameraCalibration.CalibrationConfig import calibration_param_path
 
     # Camera calibration
     param_data = np.load(calibration_param_path + '.npz')
@@ -335,6 +437,12 @@ if __name__ == '__main__':
     except Exception:
         pass
 
+    # Force head down again after stand, in case stand moved the head
+    try:
+        look_down_at_floor()
+    except Exception:
+        pass
+
     last_scan_time = time.time()
     scan_interval = 5.0
 
@@ -344,12 +452,31 @@ if __name__ == '__main__':
             if ret:
                 frame = img.copy()
                 frame = cv2.remap(frame, mapx, mapy, cv2.INTER_LINEAR)
-                Frame = run(frame)
-                cv2.imshow('result_image', Frame)
 
-                if time.time() - last_scan_time > scan_interval:
-                    intruder_found, head_pose = scan_for_intruder(my_camera)
-                    last_scan_time = time.time()
+                if current_mode == 'patrol':
+                    Frame = run(frame)
+                    cv2.imshow('result_image', Frame)
+
+                    if time.time() - last_scan_time > scan_interval:
+                        scan_for_intruder(my_camera)
+                        last_scan_time = time.time()
+
+                elif current_mode == 'follow':
+                    Frame = Follow.run(frame)
+                    cv2.imshow('result_image', Frame)
+
+                    now = time.time()
+                    if red_visible(frame):
+                        last_red_seen_time = now
+                        if follow_visible_since is None:
+                            follow_visible_since = now
+                        elif now - follow_visible_since >= GAME_OVER_SECONDS:
+                            trigger_game_over()
+                    else:
+                        follow_visible_since = None
+                        if now - last_red_seen_time > RED_LOST_TIMEOUT:
+                            stop_follow_mode()
+                            last_scan_time = time.time()
 
             key = cv2.waitKey(1)
             if key == 27:
@@ -364,4 +491,3 @@ if __name__ == '__main__':
         except Exception:
             pass
         cv2.destroyAllWindows()
-        exit()
