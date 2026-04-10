@@ -15,6 +15,7 @@ class ActionMapper:
         self.BTN_CROSS = BTN_CROSS
         self.BTN_TRIANGLE = BTN_TRIANGLE
         self.BTN_CIRCLE = BTN_CIRCLE
+        self.BUTTON_COOLDOWN = BUTTON_COOLDOWN
 
         # Map buttons → action names
         self.map = {
