@@ -39,9 +39,6 @@ class BrokerGUI:
 
         tk.Label(left, text="Robots", font=("Arial", 14, "bold")).pack()
 
-        # self.robot_frame = tk.Frame(left)
-        # self.robot_frame.pack()
-
         tk.Button(left, text="Select All", command=self.select_all).pack(pady=5)
         tk.Button(left, text="Clear All", command=self.clear_all).pack(pady=5)
 
@@ -142,20 +139,19 @@ class BrokerGUI:
         self.root.after(0, lambda: self._add_robot_safe(robot_name))
 
     def _add_robot_safe(self, robot_name):
-        
-        # only make elements once per robot
+
+        # Only create GUI elements once per robot
         if robot_name in self.discovered_robots:
             return
-        
-        # first time seeing this robot, add it to discovered
-        self.discovered_robots[robot_name] = True
-        
+
+        self.discovered_robots.add(robot_name)
+
         # Create heartbeat label ONCE
         hb_label = tk.Label(self.heartbeat_frame, text=f"{robot_name}: 🔴", fg="red")
         hb_label.pack(anchor="w")
         self.heartbeat_labels[robot_name] = hb_label
         self.heartbeat_times[robot_name] = 0
-        
+
         # Add robot to listbox as alive
         self.robot_listbox.insert(tk.END, robot_name)
         self.alive_robots.add(robot_name)
