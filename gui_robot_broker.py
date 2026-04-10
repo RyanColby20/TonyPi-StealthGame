@@ -174,17 +174,17 @@ class BrokerGUI:
         for robot, label in self.heartbeat_labels.items():
             last = self.heartbeat_times.get(robot, 0)
             alive = (now - last) < timeout
-
+            
             if alive:
                 label.config(text=f"{robot}: 🟢", fg="green")
 
-                # If robot was dead but is now alive, re-add to set
-                if robot not in self.alive_robots:
-                    self.alive_robots[robot] = True
-                    
                 # If robot was dead but is now alive, re-add to listbox
-                if robot not in self.robot_listbox.get(0,tk.END):
-                    self.robot_listbox.insert(tk.END, robot)
+                if robot not in self.alive_robots:
+                    self.alive_robots.add(robot)
+
+                    # Only insert if not already in listbox
+                    if robot not in self.robot_listbox.get(0, tk.END):
+                        self.robot_listbox.insert(tk.END, robot)
             else:
                 label.config(text=f"{robot}: 🔴", fg="red")
                 dead_robots.append(robot)
