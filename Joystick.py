@@ -13,10 +13,83 @@ import hiwonder.ActionGroupControl as AGC
 
 #ps2手柄控制动作, 已以system方式自启动，无需再开启
 
-key_map = {"PSB_CROSS":2, "PSB_CIRCLE":1, "PSB_SQUARE":3, "PSB_TRIANGLE":0,
-        "PSB_L1": 4, "PSB_R1":5, "PSB_L2":6, "PSB_R2":7,
-        "PSB_SELECT":8, "PSB_START":9, "PSB_L3":10, "PSB_R3":11};
-action_map = ["CROSS", "CIRCLE", "", "SQUARE", "TRIANGLE", "L1", "R1", "L2", "R2", "SELECT", "START", "", "L3", "R3"]
+
+"""
+D-PAD (HAT)
+(0,0) = nothing
+(-1,0) = left
+(1,0) = right
+(0,1) = up
+(0,-1) = down
+
+SYMBOL BUTTONS
+SQUARE = 3
+TRIANGLE = 4
+CIRCLE = 1
+CROSS = 0
+
+SHOULDER BUTTONS
+L1 = 6
+R1 = 7
+
+"TRIGGERS"
+L2 = 8
+R2 = 9
+
+OTHER
+SELECT = 10
+START = 11
+MODE = 12
+
+JOYSTICK BUTTONS
+LEFT JOYSTICK = 13
+RIGHT JOYSTICK = 14
+"""
+
+# key_map = {"PSB_CROSS":2, "PSB_CIRCLE":1, "PSB_SQUARE":3, "PSB_TRIANGLE":0,
+#         "PSB_L1": 4, "PSB_R1":5, "PSB_L2":6, "PSB_R2":7,
+#         "PSB_SELECT":8, "PSB_START":9, "PSB_L3":10, "PSB_R3":11};
+# action_map = ["CROSS", "CIRCLE", "", "SQUARE", "TRIANGLE", "L1", "R1", "L2", "R2", "SELECT", "START", "", "L3", "R3"]
+
+key_map = {
+    "PSB_CROSS": 0,
+    "PSB_CIRCLE": 1,
+    "PSB_SQUARE": 3,
+    "PSB_TRIANGLE": 4,
+
+    "PSB_L1": 6,
+    "PSB_R1": 7,
+
+    "PSB_L2": 8,
+    "PSB_R2": 9,
+
+    "PSB_SELECT": 10,
+    "PSB_START": 11,
+    "PSB_MODE": 12,
+
+    "PSB_L3": 13,   # left joystick button
+    "PSB_R3": 14    # right joystick button
+}
+
+action_map = {
+    0:  "CROSS",
+    1:  "CIRCLE",
+    3:  "SQUARE",
+    4:  "TRIANGLE",
+
+    6:  "L1",
+    7:  "R1",
+
+    8:  "L2",
+    9:  "R2",
+
+    10: "SELECT",
+    11: "START",
+    12: "MODE",
+
+    13: "L3",
+    14: "R3"
+}
 
 def joystick_init():
     os.environ["SDL_VIDEODRIVER"] = "dummy"
