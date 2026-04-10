@@ -3,5 +3,5 @@
 # These values set the initial pulse width for each servo.  Feel
 # free to adjust them to suit your robot's geometry.
 
-servo1: 500
-servo2: 500
+servo1: 1500
+servo2: 1500
