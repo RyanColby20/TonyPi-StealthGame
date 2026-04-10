@@ -6,6 +6,8 @@ This is the file that should be run to initialize an intruder within the game.
 
 import json
 import time
+import signal
+import sys
 from robot_functions.robot_comm import RobotComm
 
 class intruder_main:
@@ -14,6 +16,7 @@ class intruder_main:
         self.robot = robot_controller
 
         self.state = "WAITING_FOR_GAME_START"
+        self.running = True
 
         self.comm = RobotComm(
             client_name=f"intruder_{intruder_id}",
@@ -96,12 +99,64 @@ class intruder_main:
     # ---------------------------------------------------------
     # MAIN LOOP (PLAYER CONTROL)
     # ---------------------------------------------------------
-    def update(self, controller_input):
-        """
-        Call this every frame with the latest Bluetooth controller input.
-        """
+    def update(self):
+        """Called every frame."""
         if self.state != "ACTIVE_PLAYER_CONTROL":
             return
 
-        # Example: controller_input = {"x": 0.2, "y": -0.8}
+        controller_input = self.get_input()
+        if controller_input is None:
+            return
+
         self.robot.drive(controller_input)
+
+    def run(self, fps=30):
+        """Main loop that keeps the intruder alive."""
+        print("[INTRUDER] Running main loop...")
+        frame_delay = 1.0 / fps
+
+        while self.running:
+            self.update()
+            time.sleep(frame_delay)
+
+        print("[INTRUDER] Shutdown complete.")
+
+    def shutdown(self):
+        """Graceful shutdown."""
+        print("[INTRUDER] Shutting down...")
+        self.running = False
+        self.robot.stop_all()
+        self.comm.disconnect()
+
+
+# ---------------------------------------------------------
+# ENTRY POINT
+# ---------------------------------------------------------
+def main():
+    # Import your robot controller and Bluetooth input function
+    from robot_functions.robot_controller import TonyPiController
+    from controller_input.bluetooth_input import get_controller_input
+
+    intruder_id = "intruder1"
+    broker_ip = "192.168.1.50"
+
+    robot = TonyPiController()
+    intruder = intruder_main(
+        intruder_id=intruder_id,
+        broker_ip=broker_ip,
+        robot_controller=robot,
+        controller_input_fn=get_controller_input
+    )
+
+    # Handle CTRL-C
+    def handle_sigint(sig, frame):
+        intruder.shutdown()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, handle_sigint)
+
+    intruder.run()
+
+
+if __name__ == "__main__":
+    main()
