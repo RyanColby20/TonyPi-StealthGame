@@ -37,8 +37,8 @@ class BrokerGUI:
 
         tk.Label(left, text="Robots", font=("Arial", 14, "bold")).pack()
 
-        self.robot_frame = tk.Frame(left)
-        self.robot_frame.pack()
+        # self.robot_frame = tk.Frame(left)
+        # self.robot_frame.pack()
 
         tk.Button(left, text="Select All", command=self.select_all).pack(pady=5)
         tk.Button(left, text="Clear All", command=self.clear_all).pack(pady=5)
@@ -84,6 +84,10 @@ class BrokerGUI:
 
         self.heartbeat_frame = tk.Frame(hb_frame)
         self.heartbeat_frame.pack(anchor="w")
+        
+        # Listbox for robot selection
+        self.robot_listbox = tk.Listbox(left, selectmode=tk.MULTIPLE, height=8)
+        self.robot_listbox.pack(fill="both", expand=True)
 
 
     # ---------------------------------------------------------
@@ -96,7 +100,9 @@ class BrokerGUI:
         self.log.config(state="disabled")
 
     def selected_robots(self):
-        return [name for name, var in self.robot_vars.items() if var.get()]
+        # return [name for name, var in self.robot_vars.items() if var.get()]
+        indices = self.robot_listbox.curselection()
+        return [self.robot_listbox.get(i) for i in indices]
 
     def select_all(self):
         for var in self.robot_vars.values():
@@ -143,11 +149,15 @@ class BrokerGUI:
         chk = tk.Checkbutton(self.robot_frame, text=robot_name, variable=var)
         chk.pack(anchor="w")
         
-        hb_label = tk.Label(self.heartbeat_frame, text=f"{robot_name}: 🔴", fg="red")
-        hb_label.pack(anchor="w")
-        self.heartbeat_labels[robot_name] = hb_label
-        self.heartbeat_times[robot_name] = 0
-
+        # hb_label = tk.Label(self.heartbeat_frame, text=f"{robot_name}: 🔴", fg="red")
+        # hb_label.pack(anchor="w")
+        # self.heartbeat_labels[robot_name] = hb_label
+        # self.heartbeat_times[robot_name] = 0
+        
+        # Add robot to listbox only if not already present
+        if robot_name not in self.robot_vars:
+            self.robot_listbox.insert(tk.END, robot_name)
+            self.robot_vars[robot_name] = True
 
         self.robot_vars[robot_name] = var
         self.log_msg(f"Discovered robot: {robot_name}") 
@@ -162,8 +172,9 @@ class BrokerGUI:
         now = time.time()
         timeout = 2.5
         # Currently, robots appear to send heartbeat messages roughly every 2 seconds, so 2.5 was selected
-        # because it was slightly above it. Prevents false positives while notifying of disconnects ASAP
+        # because it was slightly above it. Prevents false positives while notifying of disconnects ASAP        
 
+        dead_robots = []
         for robot, label in self.heartbeat_labels.items():
             last = self.heartbeat_times.get(robot, 0)
             alive = (now - last) < timeout
@@ -172,8 +183,22 @@ class BrokerGUI:
                 label.config(text=f"{robot}: 🟢", fg="green")
             else:
                 label.config(text=f"{robot}: 🔴", fg="red")
+                dead_robots.append(robot)
 
+        # Functionality for robot removal after death is below
+        # Remove dead robots from listbox
+        for robot in dead_robots:
+            if robot in self.robot_vars:
+                del self.robot_vars[robot]
+
+                # Remove from listbox
+                for i in range(self.robot_listbox.size()):
+                    if self.robot_listbox.get(i) == robot:
+                        self.robot_listbox.delete(i)
+                        break
+                    
         self.root.after(400, self._check_heartbeats)
+
 
 
 # ---------------------------------------------------------
