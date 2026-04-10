@@ -80,9 +80,9 @@ class BrokerGUI:
         self.log = tk.Text(right, width=50, height=25, state="disabled")
         self.log.pack()
         
-        # Heartbeat panel (bottom-left)
+        # Heartbeat panel (bottom of commands column)
         hb_frame = tk.Frame(self.root, padx=10, pady=10)
-        hb_frame.grid(row=1, column=0, sticky="nw")
+        hb_frame.grid(row=1, column=1, sticky="s")
 
         tk.Label(hb_frame, text="Heartbeat Monitor", font=("Arial", 12, "bold")).pack(anchor="w")
 
