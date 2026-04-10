@@ -87,11 +87,6 @@ class BrokerController:
             if self.on_heartbeat:
                 self.on_heartbeat(robot_name)
 
-        if topic.startswith("robot/") and topic.endswith('/heartbeat'):
-            robot_name = topic.split("/")[1]
-            if self.on_robot_seen:
-                self.on_robot_seen(robot_name)
-
 
 
     # ---------- OPTIONAL: BROADCAST HELPERS ---------- #
