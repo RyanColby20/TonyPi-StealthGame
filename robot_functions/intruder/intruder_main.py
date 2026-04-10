@@ -8,7 +8,14 @@ import json
 import time
 import signal
 import sys
+import uuid
+
 from robot_functions.robot_comm import RobotComm
+from robot_functions.robot_controller import TonyPiController
+from controller_input.bluetooth_input import get_controller_input
+
+from robot_functions.game.robot_connection import RobotConnectionHandler
+
 
 class intruder_main:
     def __init__(self, intruder_id, broker_ip, robot_controller):
@@ -25,11 +32,12 @@ class intruder_main:
                 "game/system/start",
                 "game/system/stop",
                 "game/system/reset",
-                "game/system/game_over"
+                "game/system/game_over",
+                f"game/intruder/{self.id}/command"
             ],
             on_message=self._on_message,
             heartbeat_interval=5.0,
-            heartbeat_prefix="intruder"
+            heartbeat_prefix="game/robot"
         )
 
         self.comm.connect()
@@ -43,15 +51,27 @@ class intruder_main:
 
         if topic == "game/system/start":
             self._start_game()
+            return
 
-        elif topic == "game/system/stop":
+        if topic == "game/system/stop":
             self._stop_game()
+            return
 
-        elif topic == "game/system/reset":
+        if topic == "game/system/reset":
             self._reset_game()
+            return
 
-        elif topic == "game/system/game_over":
-            self._handle_game_over(payload)
+        if topic == "game/system/game_over":
+            self._enter_game_over()
+            return
+
+        if topic == f"game/intruder/{self.id}/command":
+            if payload == "stop":
+                self._stop_game()
+            elif payload == "reset":
+                self._reset_game()
+            elif payload == "game_over":
+                self._enter_game_over()
 
     # ---------------------------------------------------------
     # STATE TRANSITIONS
@@ -74,27 +94,20 @@ class intruder_main:
         self._publish_state()
         print("[INTRUDER] Game reset")
 
-    def _handle_game_over(self, payload):
-        if "guard" in payload:
-            self.state = "LOSE"
-        else:
-            self.state = "WIN"
-
+    def _enter_game_over(self):
+        self.state = "GAME_OVER"
         self.robot.stop_all()
-        self._publish_event(self.state)
         self._publish_state()
-        print(f"[INTRUDER] Game over: {self.state}")
+        print("[INTRUDER] Entering GAME_OVER state")
 
     # ---------------------------------------------------------
     # PUBLISH HELPERS
     # ---------------------------------------------------------
     def _publish_state(self):
-        topic = f"game/intruder/{self.id}/state"
-        self.comm.publish(topic, self.state)
+        self.comm.publish(f"game/intruder/{self.id}/state", self.state)
 
     def _publish_event(self, event):
-        topic = f"game/intruder/{self.id}/events"
-        self.comm.publish(topic, event)
+        self.comm.publish(f"game/intruder/{self.id}/events", event)
 
     # ---------------------------------------------------------
     # MAIN LOOP (PLAYER CONTROL)
@@ -104,7 +117,7 @@ class intruder_main:
         if self.state != "ACTIVE_PLAYER_CONTROL":
             return
 
-        controller_input = self.get_input()
+        controller_input = self.robot.get_input()
         if controller_input is None:
             return
 
@@ -133,19 +146,16 @@ class intruder_main:
 # ENTRY POINT
 # ---------------------------------------------------------
 def main():
-    # Import your robot controller and Bluetooth input function
-    from robot_functions.robot_controller import TonyPiController
-    from controller_input.bluetooth_input import get_controller_input
 
-    intruder_id = "intruder1"
-    broker_ip = "192.168.1.50"
+
+    connector = RobotConnectionHandler(role="intruder")
+    intruder_id, broker_ip = connector.register_and_wait_for_id()
 
     robot = TonyPiController()
     intruder = intruder_main(
         intruder_id=intruder_id,
         broker_ip=broker_ip,
-        robot_controller=robot,
-        controller_input_fn=get_controller_input
+        robot_controller=robot
     )
 
     # Handle CTRL-C

@@ -14,9 +14,11 @@ class GameController:
         self.on_event = on_event
         self.on_role_update = on_role_update
 
-        self.guards = {}       # guard_id → robot_name
-        self.intruders = {}    # intruder_id → robot_name
-        self.robot_roles = {}  # robot_name → role
+        self.robot_registry = {}  
+        # structure:
+        # {
+        #   "<mac>": {"role": "guard", "id": "guard1", "last_seen": timestamp}
+        # }
 
         self.game_running = False
 
@@ -25,11 +27,10 @@ class GameController:
             broker_ip=broker_ip,
             subscriptions=[
                 "game/robot/+/heartbeat", # changed heartbeat to game/robot
-                "robot/+/stop", # this may cause socket issues ?
-                "game/role/+",
                 "game/guard/+/events",
                 "game/guard/+/detections",
-                "game/intruder/+/events"
+                "game/intruder/+/events",
+                "game/robot/register"
             ],
             on_message=self._on_message,
             heartbeat_interval=5.0,
@@ -45,57 +46,95 @@ class GameController:
         topic = msg.topic
         payload = msg.payload.decode()
 
-        # Robot heartbeat
-        if topic.startswith("game/robot/") and topic.endswith("/heartbeat"):
-            robot_name = topic.split("/")[1]
-            self._notify_event(f"Heartbeat from {robot_name}")
-            return
 
-        # Robot STOP → stop entire game
-        if topic.startswith("robot/") and topic.endswith("/stop"):
-            robot_name = topic.split("/")[1]
-            self._notify_event(f"STOP received from {robot_name}, halting game")
-            self.stop_game()
-            return
-
-        # Role assignment
-        if topic.startswith("game/role/"):
-            robot_name = topic.split("/")[2]
+        # -----------------------------------------
+        # ID ASSIGN
+        # -----------------------------------------
+        if topic == "game/robot/register":
             data = json.loads(payload)
             role = data.get("role")
-            role_id = data.get("id")
+            mac = data.get("mac")
 
-            self.robot_roles[robot_name] = role
+            if not role or not mac:
+                print("[GAME] Invalid registration payload:", payload)
+                return
 
-            if role == "guard":
-                self.guards[role_id] = robot_name
-            elif role == "intruder":
-                self.intruders[role_id] = robot_name
+            assigned_id = self._assign_id(role)
 
-            if self.on_role_update:
-                self.on_role_update(robot_name, role, role_id)
+            # Save robot in registry
+            self.robot_registry[mac] = {
+                "role": role,
+                "id": assigned_id,
+                "last_seen": time.time()
+            }
 
-            self._notify_event(f"{robot_name} assigned role {role} ({role_id})")
+            print(f"[GAME] Registered {role} with MAC={mac} → assigned ID={assigned_id}")
+
+            # Send assignment back to robot
+            self.comm.publish(
+                f"game/robot/role_assignment/{mac}",
+                json.dumps({"id": assigned_id})
+            )
             return
 
-        # Guard detections
-        if "game/guard" in topic and "/detections" in topic:
+        # -----------------------------------------
+        # HEARTBEATS
+        # -----------------------------------------
+        if topic.startswith("game/robot/") and topic.endswith("/heartbeat"):
+            client_name = topic.split("/")[2]
+            now = time.time()
+
+            for mac, info in self.robot_registry.items():
+                if info["id"] in client_name:   # e.g. "guard1" in "guard_guard1"
+                    info["last_seen"] = now
+                    break
+
+            return
+
+        # -----------------------------------------
+        # GUARD EVENTS
+        # -----------------------------------------
+        if topic.startswith("game/guard/") and topic.endswith("/events"):
             guard_id = topic.split("/")[2]
-            self._notify_event(f"Guard {guard_id} detected intruder: {payload}")
-            self._handle_detection(guard_id, payload)
+            event = payload
+
+            if self.on_event:
+                self.on_event({"type": "guard_event", "guard": guard_id, "event": event})
+
+            # Example: guard reports "intruder_captured"
+            if event == "intruder_captured":
+                self.trigger_game_over(winner="guard", guard_id=guard_id)
+
             return
 
-        # Guard events
-        if "game/guard" in topic and "/events" in topic:
+        # -----------------------------------------
+        # GUARD DETECTIONS
+        # -----------------------------------------
+        if topic.startswith("game/guard/") and topic.endswith("/detections"):
             guard_id = topic.split("/")[2]
-            self._notify_event(f"Guard {guard_id} event: {payload}")
+            detection = payload
+
+            if self.on_event:
+                self.on_event({"type": "guard_detection", "guard": guard_id, "detection": detection})
+
             return
 
-        # Intruder events
-        if "game/intruder" in topic and "/events" in topic:
+        # -----------------------------------------
+        # INTRUDER EVENTS
+        # -----------------------------------------
+        if topic.startswith("game/intruder/") and topic.endswith("/events"):
             intruder_id = topic.split("/")[2]
-            self._notify_event(f"Intruder {intruder_id} event: {payload}")
+            event = payload
+
+            if self.on_event:
+                self.on_event({"type": "intruder_event", "intruder": intruder_id, "event": event})
+
+            # Example: intruder reports "win"
+            if event == "WIN":
+                self.trigger_game_over(winner="intruder", intruder_id=intruder_id)
+
             return
+        
 
     # ---------------------------------------------------------
     # GAME LOGIC
@@ -112,9 +151,6 @@ class GameController:
 
     def reset_game(self):
         self.game_running = False
-        self.guards.clear()
-        self.intruders.clear()
-        self.robot_roles.clear()
         self.comm.publish("game/system/reset", "RESET")
         self._notify_event("Game reset")
 
@@ -123,6 +159,33 @@ class GameController:
         self._notify_event(f"Game Over: Guard {guard_id} caught intruder")
         self.comm.publish("game/system/game_over", f"guard {guard_id}")
         self.stop_game()
+
+    # ---------------------------------------------------------
+    # ROBOT-SPECIFIC COMMANDS
+    # ---------------------------------------------------------
+    def send_guard_command(self, guard_id, command):
+        topic = f"game/guard/{guard_id}/command"
+        self.comm.publish(topic, command)
+
+    def send_intruder_command(self, intruder_id, command):
+        topic = f"game/intruder/{intruder_id}/command"
+        self.comm.publish(topic, command)
+
+    # ---------------------------------------------------------
+    # ID ASSIGNMENT HELPER
+    # ---------------------------------------------------------
+
+    def _assign_id(self, role: str) -> str:
+        """
+        Assigns the next available ID for a given role.
+        Example:
+            guard → guard1, guard2, guard3...
+            intruder → intruder1, intruder2...
+        """
+        # Count existing robots with this role
+        count = sum(1 for r in self.robot_registry.values() if r["role"] == role)
+        return f"{role}{count + 1}"
+
 
     # ---------------------------------------------------------
     # GUI CALLBACK HELPERS
