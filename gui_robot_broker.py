@@ -63,10 +63,6 @@ class BrokerGUI:
 
         tk.Button(mid, text="Run Script", command=self.run_script).pack(fill="x", pady=5)
 
-        # Roles
-        # tk.Button(mid, text="Assign Guard Role", command=self.assign_guard).pack(fill="x", pady=5)
-        # tk.Button(mid, text="Assign Intruder Role", command=self.assign_intruder).pack(fill="x", pady=5)
-
         # Stop
         tk.Button(mid, text="STOP Selected Robots", bg="red", fg="white",
                   command=self.stop_selected).pack(fill="x", pady=10)
@@ -132,18 +128,6 @@ class BrokerGUI:
         if robots:
             self.controller.stop_robots(robots)
             self.log_msg(f"STOP sent to {robots}")
-
-    # def assign_guard(self):
-    #     robots = self.selected_robots()
-    #     for i, name in enumerate(robots, start=1):
-    #         self.controller.assign_role(name, "guard", role_id=i)
-    #     self.log_msg(f"Assigned guard roles to {robots}")
-
-    # def assign_intruder(self):
-    #     robots = self.selected_robots()
-    #     for i, name in enumerate(robots, start=1):
-    #         self.controller.assign_role(name, "intruder", role_id=i)
-    #     self.log_msg(f"Assigned intruder roles to {robots}")
 
     # ---------------------------------------------------------
     # Dynamic robot discovery
