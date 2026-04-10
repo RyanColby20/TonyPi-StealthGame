@@ -452,9 +452,9 @@ if __name__ == '__main__':
                 frame = img.copy()
                 frame = cv2.remap(frame, mapx, mapy, cv2.INTER_LINEAR)
 
-                if ret:   # Removed Patrol functionality -- changed to ret for if a frame was actually read
-                    Frame = run(frame)
-                    cv2.imshow('result_image', Frame)
+                # Removed Patrol functionality -- changed to ret for if a frame was actually read
+                Frame = run(frame)
+                cv2.imshow('result_image', Frame)
 
                     ''' if time.time() - last_scan_time > scan_interval:
                         scan_for_intruder(my_camera)
