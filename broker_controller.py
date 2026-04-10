@@ -9,8 +9,9 @@ import json
 import time
 
 class BrokerController:
-    def __init__(self, client_name, broker_ip, on_robot_seen=None):
+    def __init__(self, client_name, broker_ip, on_robot_seen=None, on_heartbeat=None):
         self.on_robot_seen = on_robot_seen 
+        self.on_heartbeat = on_heartbeat
 
         self.comm = RobotComm(
             client_name=client_name,
@@ -76,6 +77,15 @@ class BrokerController:
     def _on_message(self, client, userdata, msg):
         print("[BROKER] Received:", msg.topic, msg.payload)
         topic = msg.topic
+
+        if topic.startswith("robot/") and topic.endswith('/heartbeat'):
+            robot_name = topic.split("/")[1]
+
+            if self.on_robot_seen:
+                self.on_robot_seen(robot_name)
+
+            if self.on_heartbeat:
+                self.on_heartbeat(robot_name)
 
         if topic.startswith("robot/") and topic.endswith('/heartbeat'):
             robot_name = topic.split("/")[1]
