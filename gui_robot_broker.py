@@ -1,5 +1,6 @@
 # gui_broker.py
 
+import time
 import tkinter as tk
 from tkinter import ttk
 from broker_controller import BrokerController
@@ -15,11 +16,16 @@ class BrokerGUI:
         self.controller = BrokerController(
             client_name="broker_gui",
             broker_ip=BROKER_IP,
-            on_robot_seen=self.add_robot
+            on_robot_seen=self.add_robot,
+            on_heartbeat=self.on_heartbeat
         )
 
         self.robot_vars = {}
-        self._build_layout()
+        self._build_layout()        
+        
+        self.heartbeat_times = {}
+        self.heartbeat_labels = {}
+        self._start_heartbeat_checker()
 
     # ---------------------------------------------------------
     # GUI LAYOUT
@@ -73,6 +79,15 @@ class BrokerGUI:
 
         self.log = tk.Text(right, width=50, height=25, state="disabled")
         self.log.pack()
+        
+        # Heartbeat panel (bottom-left)
+        hb_frame = tk.Frame(self.root, padx=10, pady=10)
+        hb_frame.grid(row=1, column=0, sticky="nw")
+
+        tk.Label(hb_frame, text="Heartbeat Monitor", font=("Arial", 12, "bold")).pack(anchor="w")
+
+        self.heartbeat_frame = tk.Frame(hb_frame)
+        self.heartbeat_frame.pack(anchor="w")
 
     # ---------------------------------------------------------
     # Utility
@@ -142,9 +157,38 @@ class BrokerGUI:
         var = tk.BooleanVar()
         chk = tk.Checkbutton(self.robot_frame, text=robot_name, variable=var)
         chk.pack(anchor="w")
+        
+        hb_label = tk.Label(self.heartbeat_frame, text=f"{robot_name}: 🔴", fg="red")
+        hb_label.pack(anchor="w")
+        self.heartbeat_labels[robot_name] = hb_label
+        self.heartbeat_times[robot_name] = 0
+
 
         self.robot_vars[robot_name] = var
         self.log_msg(f"Discovered robot: {robot_name}") 
+        
+    def on_heartbeat(self, robot_name):
+        self.heartbeat_times[robot_name] = time.time()
+    
+    def _start_heartbeat_checker(self):
+        self._check_heartbeats()
+        
+    def _check_heartbeats(self):
+        now = time.time()
+        timeout = 2.5
+        # Currently, robots appear to send heartbeat messages roughly every 2 seconds, so 2.5 was selected
+        # because it was slightly above it. Prevents false positives while notifying of disconnects ASAP
+
+        for robot, label in self.heartbeat_labels.items():
+            last = self.heartbeat_times.get(robot, 0)
+            alive = (now - last) < timeout
+
+            if alive:
+                label.config(text=f"{robot}: 🟢", fg="green")
+            else:
+                label.config(text=f"{robot}: 🔴", fg="red")
+
+        self.root.after(400, self._check_heartbeats)
 
 
 # ---------------------------------------------------------
