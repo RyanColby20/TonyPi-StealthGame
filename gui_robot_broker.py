@@ -19,8 +19,10 @@ class BrokerGUI:
             on_robot_seen=self.add_robot,
             on_heartbeat=self.on_heartbeat
         )
-
-        self.robot_vars = {}
+        
+        self.discovered_robots = set()
+        self.alive_robots = set()
+        
         self._build_layout()        
         
         self.heartbeat_times = {}
@@ -100,17 +102,15 @@ class BrokerGUI:
         self.log.config(state="disabled")
 
     def selected_robots(self):
-        # return [name for name, var in self.robot_vars.items() if var.get()]
         indices = self.robot_listbox.curselection()
         return [self.robot_listbox.get(i) for i in indices]
-
+    
     def select_all(self):
-        for var in self.robot_vars.values():
-            var.set(True)
+        self.robot_listbox.select_set(0, tk.END)
 
     def clear_all(self):
-        for var in self.robot_vars.values():
-            var.set(False)
+        self.robot_listbox.select_clear(0, tk.END)
+
 
     # ---------------------------------------------------------
     # Command Handlers
@@ -142,25 +142,25 @@ class BrokerGUI:
         self.root.after(0, lambda: self._add_robot_safe(robot_name))
 
     def _add_robot_safe(self, robot_name):
-        if robot_name in self.robot_vars:
-            return
-
-        # var = tk.BooleanVar()
-        # chk = tk.Checkbutton(self.robot_frame, text=robot_name, variable=var)
-        # chk.pack(anchor="w")
-        # self.robot_vars[robot_name] = var
         
+        # only make elements once per robot
+        if robot_name in self.discovered_robots:
+            return
+        
+        # first time seeing this robot, add it to discovered
+        self.discovered_robots[robot_name] = True
+        
+        # Create heartbeat label ONCE
         hb_label = tk.Label(self.heartbeat_frame, text=f"{robot_name}: 🔴", fg="red")
         hb_label.pack(anchor="w")
         self.heartbeat_labels[robot_name] = hb_label
         self.heartbeat_times[robot_name] = 0
         
-        # Add robot to listbox only if not already present
-        if robot_name not in self.robot_vars:
-            self.robot_listbox.insert(tk.END, robot_name)
-            self.robot_vars[robot_name] = True
+        # Add robot to listbox as alive
+        self.robot_listbox.insert(tk.END, robot_name)
+        self.alive_robots.add(robot_name)
 
-        self.log_msg(f"Discovered robot: {robot_name}") 
+        self.log_msg(f"Discovered robot: {robot_name}")
         
     def on_heartbeat(self, robot_name):
         self.heartbeat_times[robot_name] = time.time()
@@ -170,7 +170,7 @@ class BrokerGUI:
         
     def _check_heartbeats(self):
         now = time.time()
-        timeout = 2.5
+        timeout = 3
         # Currently, robots appear to send heartbeat messages roughly every 2 seconds, so 2.5 was selected
         # because it was slightly above it. Prevents false positives while notifying of disconnects ASAP        
 
@@ -181,6 +181,14 @@ class BrokerGUI:
 
             if alive:
                 label.config(text=f"{robot}: 🟢", fg="green")
+
+                # If robot was dead but is now alive, re-add to set
+                if robot not in self.alive_robots:
+                    self.alive_robots[robot] = True
+                    
+                # If robot was dead but is now alive, re-add to listbox
+                if robot not in self.robot_listbox.get(0,tk.END):
+                    self.robot_listbox.insert(tk.END, robot)
             else:
                 label.config(text=f"{robot}: 🔴", fg="red")
                 dead_robots.append(robot)
@@ -188,14 +196,15 @@ class BrokerGUI:
         # Functionality for robot removal after death is below
         # Remove dead robots from listbox
         for robot in dead_robots:
-            if robot in self.robot_vars:
-                del self.robot_vars[robot]
+            if robot in self.alive_robots:
+                self.alive_robots.remove(robot)
 
                 # Remove from listbox
                 for i in range(self.robot_listbox.size()):
                     if self.robot_listbox.get(i) == robot:
                         self.robot_listbox.delete(i)
                         break
+
                     
         self.root.after(400, self._check_heartbeats)
 
