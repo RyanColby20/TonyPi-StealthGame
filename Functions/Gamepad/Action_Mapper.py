@@ -10,6 +10,11 @@ class ActionMapper:
         self.robot = robot
         self.learn_mode = learn_mode
         self.last_fire = {}
+        
+        self.BTN_SQUARE = BTN_SQUARE
+        self.BTN_CROSS = BTN_CROSS
+        self.BTN_TRIANGLE = BTN_TRIANGLE
+        self.BTN_CIRCLE = BTN_CIRCLE
 
         # Map buttons → action names
         self.map = {
