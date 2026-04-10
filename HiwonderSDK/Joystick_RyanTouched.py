@@ -24,7 +24,7 @@ import hiwonder.Board as Board
 # GENERAL SETTINGS
 # ----------------------------
 LOOP_SLEEP = 0.02
-LEARN_MODE = True
+LEARN_MODE = False
 BUTTON_COOLDOWN = 0.25
 
 # Left stick movement
