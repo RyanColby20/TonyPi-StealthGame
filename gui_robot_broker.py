@@ -145,21 +145,21 @@ class BrokerGUI:
         if robot_name in self.robot_vars:
             return
 
-        var = tk.BooleanVar()
-        chk = tk.Checkbutton(self.robot_frame, text=robot_name, variable=var)
-        chk.pack(anchor="w")
+        # var = tk.BooleanVar()
+        # chk = tk.Checkbutton(self.robot_frame, text=robot_name, variable=var)
+        # chk.pack(anchor="w")
+        # self.robot_vars[robot_name] = var
         
-        # hb_label = tk.Label(self.heartbeat_frame, text=f"{robot_name}: 🔴", fg="red")
-        # hb_label.pack(anchor="w")
-        # self.heartbeat_labels[robot_name] = hb_label
-        # self.heartbeat_times[robot_name] = 0
+        hb_label = tk.Label(self.heartbeat_frame, text=f"{robot_name}: 🔴", fg="red")
+        hb_label.pack(anchor="w")
+        self.heartbeat_labels[robot_name] = hb_label
+        self.heartbeat_times[robot_name] = 0
         
         # Add robot to listbox only if not already present
         if robot_name not in self.robot_vars:
             self.robot_listbox.insert(tk.END, robot_name)
             self.robot_vars[robot_name] = True
 
-        self.robot_vars[robot_name] = var
         self.log_msg(f"Discovered robot: {robot_name}") 
         
     def on_heartbeat(self, robot_name):
