@@ -2,7 +2,7 @@
 # coding=utf8
 
 from Gamepad import Gamepad
-from ...robot_functions.robot_controller_dummy import TonyPiController   # whatever class wraps run_action(), stop_actions(), etc.
+from robot_functions.robot_controller_dummy import TonyPiController   # whatever class wraps run_action(), stop_actions(), etc.
 
 def main():
     robot = TonyPiController()              # your robot control class

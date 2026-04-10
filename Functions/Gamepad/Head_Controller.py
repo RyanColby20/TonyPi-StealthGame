@@ -1,7 +1,7 @@
 import time
 from hiwonder import Board
 
-from .Constants import *
+from Constants import *
 
 class HeadController:
     """

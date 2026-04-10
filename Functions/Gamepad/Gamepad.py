@@ -3,10 +3,10 @@ import time
 import threading
 import pygame
 
-from .Head_Controller import HeadController
-from .Movement_Controller import MovementController
-from .Action_Mapper import ActionMapper
-from .Constants import *
+from Head_Controller import HeadController
+from Movement_Controller import MovementController
+from Action_Mapper import ActionMapper
+from Constants import *
 
 class Gamepad:
     """

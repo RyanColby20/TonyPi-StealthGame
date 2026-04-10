@@ -1,6 +1,6 @@
 import time
 
-from .Constants import *
+from Constants import *
 
 class MovementController:
     """
