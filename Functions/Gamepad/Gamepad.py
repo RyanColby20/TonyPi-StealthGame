@@ -116,7 +116,7 @@ class Gamepad:
                 self.actions.handle_button(b)
 
                 # START button → stand + recenter
-                if b == self.actions.BTN_START:
+                if b == BTN_START:
                     self.robot.run_action("stand", times=1)
                     self.head.recenter()
 
