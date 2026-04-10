@@ -33,3 +33,16 @@ class TonyPiController:
     def _stop_requested(self):
         with self._lock:
             return self._stop_flag
+        
+    def run_action(self, name, times=1):
+        """
+        Wrapper so Gamepad system can call actions.
+        """
+        self.run_action_group(name, repeat=times)
+
+    def stop_actions(self):
+        """
+        Wrapper so Gamepad system can stop actions.
+        """
+        self.stop_all()
+
