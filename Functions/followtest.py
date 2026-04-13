@@ -337,7 +337,7 @@ def run_hsv(img):
     
     frame_resize = cv2.resize(img_copy, size, interpolation=cv2.INTER_NEAREST)
     frame_gb = cv2.GaussianBlur(frame_resize, (3, 3), 3)
-    frame_hsv = cv2.cvtColor(frame_gb, cv2.COLOR_BGR2HSV)  # Convert to HSV
+    frame_hsv = cv2.cvtColor(frame_gb, cv2.COLOR_RGB2HSV)  # Convert to HSV
     run_hsv.last_hsv = frame_hsv
     
     area_max = 0
