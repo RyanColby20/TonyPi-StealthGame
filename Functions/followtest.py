@@ -341,6 +341,14 @@ def run_hsv(img):
     
     area_max = 0
     areaMaxContour = None
+    
+    def show_hsv(event, x, y, flags, param):
+        if event == cv2.EVENT_MOUSEMOVE:
+            hsv = frame_hsv[y, x]
+            print("HSV:", hsv)
+
+    cv2.setMouseCallback("Frame", show_hsv)
+
 
     # Loop through HSV thresholds instead of LAB
     for i in lab_data_hsv:
@@ -426,7 +434,6 @@ def run_hsv(img):
         centerX, centerY = -1, -1
 
     return img
-
 
 # Main Breakdown
 # 1. Initializes and starts tracking
