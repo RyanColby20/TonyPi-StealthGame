@@ -31,7 +31,7 @@ except ImportError:
     import HiwonderSDK.yaml_handle as yaml_handle
 
 
-class Follow_cls:
+class Follow_Class:
     """
     Intruder follow behavior for guard_main.
 

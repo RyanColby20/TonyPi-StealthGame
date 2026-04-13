@@ -13,8 +13,8 @@ import signal
 import sys
 
 from robot_functions.robot_comm import RobotComm
-from robot_functions.guard.visualPatrol import VisualPatrol_ClassV1
-from robot_functions.guard.Follow import Follow_ClassV1
+from robot_functions.guard.VisualPatrol_ClassV1 import VisualPatrol_Class
+from robot_functions.guard.Follow_ClassV1 import Follow_Class
 from robot_functions.robot_controller import TonyPiController
 from robot_functions.game.robot_connection import RobotConnectionHandler
 
@@ -24,8 +24,8 @@ class GuardMain:
         self.id = guard_id
         self.robot = robot_controller
 
-        self.visual_patrol = VisualPatrol_ClassV1(robot_controller)
-        self.follow_intruder = Follow_ClassV1(robot_controller)
+        self.visual_patrol = VisualPatrol_Class(robot_controller)
+        self.follow_intruder = Follow_Class(robot_controller)
 
         self.state = "WAITING_FOR_GAME_START"
         self.running = True

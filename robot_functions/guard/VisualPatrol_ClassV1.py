@@ -27,7 +27,7 @@ except ImportError:
     import HiwonderSDK.yaml_handle as yaml_handle
 
 
-class Visual_Patrol_cls:
+class VisualPatrol_Class:
     """
     Line-follow patrol behavior for guard_main.
 
