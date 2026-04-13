@@ -435,6 +435,12 @@ def run_hsv(img):
 # 2. Opens camera
 # 3. Runs action group 
 
+
+def show_hsv(event, x, y, flags, param):
+    if event == cv2.EVENT_MOUSEMOVE:
+        hsv = param[y, x]
+        print("HSV:", hsv)
+
 if __name__ == '__main__':
     init()
     start()
@@ -453,11 +459,7 @@ if __name__ == '__main__':
             frame = img.copy()
             Frame = run_hsv(frame)           
             cv2.imshow('Frame', Frame)
-            def show_hsv(event, x, y, flags, param):
-                if event == cv2.EVENT_MOUSEMOVE:
-                    hsv = frame_hsv[y, x]
-                    print("HSV:", hsv)
-            cv2.setMouseCallback("Frame", show_hsv)
+            cv2.setMouseCallback("Frame", show_hsv, Frame)
             key = cv2.waitKey(1)
             if key == 27:
                 break
