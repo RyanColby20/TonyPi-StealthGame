@@ -361,18 +361,18 @@ def run_hsv(img):
     #         merged_mask = cv2.bitwise_or(merged_mask, mask)
     
     # Hard-coded HSV ranges for red
-    lower_red1 = np.array([110, 180, 190])
+    lower_red1 = np.array([110, 160, 160])
     upper_red1 = np.array([170, 255, 255])
 
-    lower_red2 = np.array([110, 180, 190])
-    upper_red2 = np.array([170, 255, 255])
+    # lower_red2 = np.array([110, 160, 190])
+    # upper_red2 = np.array([170, 255, 255])
 
     # Create masks
-    mask1 = cv2.inRange(frame_hsv, lower_red1, upper_red1)
-    mask2 = cv2.inRange(frame_hsv, lower_red2, upper_red2)
+    merged_mask = cv2.inRange(frame_hsv, lower_red1, upper_red1)
+    # mask2 = cv2.inRange(frame_hsv, lower_red2, upper_red2)
 
     # Merge them
-    merged_mask = cv2.bitwise_or(mask1, mask2)
+    # merged_mask = cv2.bitwise_or(mask1, mask2)
 
     # Debug mask view
     cv2.imshow('mask', merged_mask)
