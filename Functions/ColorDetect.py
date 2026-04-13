@@ -352,7 +352,8 @@ if __name__ == '__main__':
         if ret:
             frame = img.copy()
             frame = cv2.remap(frame, mapx, mapy, cv2.INTER_LINEAR)  # 畸变矫正
-            Frame = run(frame)
+            # Frame = run(frame)
+            Frame = run_hsv(frame)
             cv2.imshow('Frame', Frame)
             key = cv2.waitKey(1)
             if key == 27:
