@@ -264,7 +264,7 @@ def run(img):
             dilated = cv2.dilate(eroded, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))) # Dilate
             contours = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[-2]  # Find contours
             areaMaxContour, area_max = getAreaMaxContour(contours)  # Find largest contour
-            print('area_max =', area_max) ## ADDED FOR TESTING
+            # print('area_max =', area_max) ## ADDED FOR TESTING
     if areaMaxContour is not None and area_max > 100:  # Largest valid contour found
         rect = cv2.minAreaRect(areaMaxContour) # Minimum bounding rectangle
         box = np.int0(cv2.boxPoints(rect)) # Four corner points of the rectangle
@@ -372,7 +372,7 @@ def run_hsv(img):
             dilated = cv2.dilate(eroded, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))
             contours = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[-2]
             areaMaxContour, area_max = getAreaMaxContour(contours)
-            print('area_max =', area_max)
+            # print('area_max =', area_max)
 
     # If a valid contour was found
     if areaMaxContour is not None and area_max > 100:
