@@ -4,8 +4,8 @@
 # update these values accordingly.
 
 red:
-  min: [80, 120, 120]
-  max: [100, 255, 255]
+  min: [0, 120, 120]
+  max: [10, 255, 255]
 
 red_alt:
   min: [165, 120, 120]
