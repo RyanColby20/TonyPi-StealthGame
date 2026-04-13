@@ -54,7 +54,7 @@ follow_thread = None
 
 # Loads LAB color thresholds and servo defaults from yaml
 def load_config():
-    global lab_data, servo_data
+    global lab_data, lab_data_hsv, servo_data
     
     lab_data = yaml_handle.get_yaml_data(yaml_handle.lab_file_path)
     lab_data_hsv = yaml_handle.get_yaml_data(yaml_handle.lab_hsv_file_path)
