@@ -1,4 +1,5 @@
 import time
+import random
 import tkinter as tk
 from tkinter import ttk
 from broker_controller import BrokerController
@@ -270,10 +271,24 @@ class DemoGUI:
         if not robots:
             return
 
-        num_actions = len(action_list)
+        # Make a working copy so we don't mutate the original list
+        actions = action_list[:]
 
-        for i, robot in enumerate(robots):
-            action_group = action_list[i % num_actions]
+        # Shuffle once at the start
+        random.shuffle(actions)
+
+        action_index = 0
+
+        for robot in robots:
+            # If we've used all actions, reshuffle and restart
+            if action_index >= len(actions):
+                random.shuffle(actions)
+                action_index = 0
+
+            action_group = actions[action_index]
+            action_index += 1
+
+            # Send action to this robot
             self.controller.run_action_group([robot], action_group)
             self.log_msg(f"Sent '{action_group}' to {robot}")
 
