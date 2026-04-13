@@ -338,6 +338,7 @@ def run_hsv(img):
     frame_resize = cv2.resize(img_copy, size, interpolation=cv2.INTER_NEAREST)
     frame_gb = cv2.GaussianBlur(frame_resize, (3, 3), 3)
     frame_hsv = cv2.cvtColor(frame_gb, cv2.COLOR_BGR2HSV)  # Convert to HSV
+    run_hsv.last_hsv = frame_hsv
     
     area_max = 0
     areaMaxContour = None
@@ -459,7 +460,7 @@ if __name__ == '__main__':
             frame = img.copy()
             Frame = run_hsv(frame)           
             cv2.imshow('Frame', Frame)
-            cv2.setMouseCallback("Frame", show_hsv, Frame)
+            cv2.setMouseCallback("Frame", show_hsv, run_hsv.last_hsv)
             key = cv2.waitKey(1)
             if key == 27:
                 break
