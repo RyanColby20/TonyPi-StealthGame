@@ -367,6 +367,7 @@ def run_hsv(img):
 
             # Debug mask view
             cv2.imshow('mask', frame_mask)
+            cv2.imshow("masked", cv2.bitwise_and(frame_resize, frame_resize, mask=frame_mask))
 
             eroded = cv2.erode(frame_mask, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))
             dilated = cv2.dilate(eroded, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))
