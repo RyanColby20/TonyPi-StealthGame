@@ -60,7 +60,7 @@ def load_config():
     lab_data_hsv = yaml_handle.get_yaml_data(yaml_handle.lab_hsv_file_path)
     servo_data = yaml_handle.get_yaml_data(yaml_handle.servo_file_path)
 
-__target_color = ('red_alt',) 
+__target_color = ('red','red_alt') 
 # Set detection color
 def setBallTargetColor(target_color):
     global __target_color
@@ -341,13 +341,7 @@ def run_hsv(img):
     
     area_max = 0
     areaMaxContour = None
-    
-    def show_hsv(event, x, y, flags, param):
-        if event == cv2.EVENT_MOUSEMOVE:
-            hsv = frame_hsv[y, x]
-            print("HSV:", hsv)
 
-    cv2.setMouseCallback("Frame", show_hsv)
 
 
     # Loop through HSV thresholds instead of LAB
@@ -459,6 +453,11 @@ if __name__ == '__main__':
             frame = img.copy()
             Frame = run_hsv(frame)           
             cv2.imshow('Frame', Frame)
+            def show_hsv(event, x, y, flags, param):
+                if event == cv2.EVENT_MOUSEMOVE:
+                    hsv = frame_hsv[y, x]
+                    print("HSV:", hsv)
+            cv2.setMouseCallback("Frame", show_hsv)
             key = cv2.waitKey(1)
             if key == 27:
                 break
