@@ -12,12 +12,11 @@ import hiwonder.Misc as Misc
 import hiwonder.Board as Board
 import hiwonder.Camera as Camera
 import hiwonder.ActionGroupControl as AGC
-import hiwonder.yaml_handle as yaml_handle
+# import hiwonder.yaml_handle as yaml_handle
+from HiwonderSDK.yaml_handle as yaml_handle
 from CameraCalibration.CalibrationConfig import *
 
-#跟随 
-
-debug = False
+debug = True
 
 if sys.version_info.major == 2:
     print('Please run this program with python3!')
@@ -252,6 +251,7 @@ def run(img):
     #img = cv2.remap(img, mapx, mapy, cv2.INTER_LINEAR)  # 畸变矫正 
 
     return img
+
 def run_hsv(img):
     global radius_data
     global x_dis, y_dis
@@ -283,6 +283,18 @@ def run_hsv(img):
                  lab_data_hsv[i]['max'][1],
                  lab_data_hsv[i]['max'][2])
             )
+            
+            if debug:
+                # Show the raw binary mask (white = detected)
+                cv2.imshow(f"{i}_mask", frame_mask)
+
+                # Show the masked color image (only detected pixels visible)
+                masked = cv2.bitwise_and(frame_resize, frame_resize, mask=frame_mask)
+                cv2.imshow(f"{i}_masked", masked)
+
+                # Optional: show inverse mask (pixels NOT detected)
+                inv_mask = cv2.bitwise_not(frame_mask)
+                cv2.imshow(f"{i}_inv_mask", inv_mask)
             
             eroded = cv2.erode(frame_mask, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))
             dilated = cv2.dilate(eroded, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))
