@@ -3,11 +3,11 @@
 # If you calibrate your own camera and lighting conditions you should
 # update these values accordingly.
 
-red1:
+red:
   min: [0, 120, 120]
   max: [10, 255, 255]
 
-red2:
+red_alt:
   min: [170, 120, 120]
   max: [180, 255, 255]
 
