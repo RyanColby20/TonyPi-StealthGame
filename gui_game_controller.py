@@ -2,13 +2,17 @@
 
 import tkinter as tk
 from game_functions.GameController import GameController
+from HiwonderSDK.yaml_handle import load_robot_config
 
-BROKER_IP = "localhost"
+
 
 class GameGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Game Controller")
+
+        config = load_robot_config()
+        BROKER_IP = config.get("robot", {}).get("broker_ip", "127.0.0.1")
 
         self.controller = GameController(
             broker_ip=BROKER_IP,

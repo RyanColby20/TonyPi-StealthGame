@@ -61,7 +61,6 @@ class GameController:
 
             assigned_id = self._assign_id(role)
 
-            # Save robot in registry
             self.robot_registry[mac] = {
                 "role": role,
                 "id": assigned_id,
@@ -69,6 +68,10 @@ class GameController:
             }
 
             print(f"[GAME] Registered {role} with MAC={mac} → assigned ID={assigned_id}")
+
+            # 🔥 Notify GUI
+            if self.on_role_update:
+                self.on_role_update(mac, role, assigned_id)
 
             # Send assignment back to robot
             self.comm.publish(
@@ -99,7 +102,7 @@ class GameController:
             event = payload
 
             if self.on_event:
-                self.on_event({"type": "guard_event", "guard": guard_id, "event": event})
+                self.on_event(f"[GUARD {guard_id}] {event}")
 
             # Example: guard reports "intruder_captured"
             if event == "intruder_captured":
@@ -127,7 +130,7 @@ class GameController:
             event = payload
 
             if self.on_event:
-                self.on_event({"type": "intruder_event", "intruder": intruder_id, "event": event})
+                self.on_event(f"[INTRUDER {intruder_id}] {event}")
 
             # Example: intruder reports "win"
             if event == "WIN":
