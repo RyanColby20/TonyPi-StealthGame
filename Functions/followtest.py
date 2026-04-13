@@ -342,33 +342,6 @@ def run_hsv(img):
     
     area_max = 0
     areaMaxContour = None
-
-
-
-    # # Loop through HSV thresholds instead of LAB
-    # for i in lab_data_hsv:
-    #     if i in __target_color:
-    #         detect_color = i
-
-    #         frame_mask = cv2.inRange(
-    #             frame_hsv,
-    #             (lab_data_hsv[i]['min'][0],
-    #              lab_data_hsv[i]['min'][1],
-    #              lab_data_hsv[i]['min'][2]),
-    #             (lab_data_hsv[i]['max'][0],
-    #              lab_data_hsv[i]['max'][1],
-    #              lab_data_hsv[i]['max'][2])
-    #         )
-
-    #         # Debug mask view
-    #         cv2.imshow('mask', frame_mask)
-    #         cv2.imshow("masked", cv2.bitwise_and(frame_resize, frame_resize, mask=frame_mask))
-
-    #         eroded = cv2.erode(frame_mask, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))
-    #         dilated = cv2.dilate(eroded, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))
-    #         contours = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[-2]
-    #         areaMaxContour, area_max = getAreaMaxContour(contours)
-    #         # print('area_max =', area_max)
     
     # Start with an empty mask
     merged_mask = np.zeros(frame_hsv.shape[:2], dtype=np.uint8)
