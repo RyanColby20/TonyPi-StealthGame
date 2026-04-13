@@ -44,11 +44,13 @@ def getAreaMaxContour(contours):
     return area_max_contour, contour_area_max  # 返回最大的轮廓
 
 lab_data = None
+lab_data_hsv = None
 servo_data = None
 def load_config():
-    global lab_data, servo_data
+    global lab_data, lab_data_hsv, servo_data
     
     lab_data = yaml_handle.get_yaml_data(yaml_handle.lab_file_path)
+    lab_data_hsv = yaml_handle.get_yaml_data(yaml_handle.lab_hsv_file_path)
     servo_data = yaml_handle.get_yaml_data(yaml_handle.servo_file_path)
 
 # 初始位置
@@ -167,7 +169,8 @@ def run(img):
 
     frame_resize = cv2.resize(img_copy, size, interpolation=cv2.INTER_NEAREST)
     frame_gb = cv2.GaussianBlur(frame_resize, (3, 3), 3)      
-    frame_lab = cv2.cvtColor(frame_gb, cv2.COLOR_BGR2LAB)  # 将图像转换到LAB空间
+    frame_lab = cv2.cvtColor(frame_gb, cv2.COLOR_BGR2LAB)  # Convert the image to the LAB color space
+    frame_hsv = cv2.cvtColor(frame_gb, cv2.COLOR_BGR2HSV)  # Convert the image to the HSV color space
 
     max_area = 0
     color_area_max = None    
@@ -182,7 +185,7 @@ def run(img):
                                           lab_data[i]['min'][2]),
                                          (lab_data[i]['max'][0],
                                           lab_data[i]['max'][1],
-                                          lab_data[i]['max'][2]))  #对原图像和掩模进行位运算
+                                          lab_data[i]['max'][2]))  # Perform bitwise operations on the original image and the mask
                 eroded = cv2.erode(frame_mask, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))  #腐蚀
                 dilated = cv2.dilate(eroded, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))) #膨胀
                 if debug:
@@ -194,6 +197,90 @@ def run(img):
                         max_area = area_max
                         color_area_max = i
                         areaMaxContour_max = areaMaxContour
+                        
+        if max_area > 200:  # 有找到最大面积
+            ((centerX, centerY), radius) = cv2.minEnclosingCircle(areaMaxContour_max)  # 获取最小外接圆
+            centerX = int(Misc.map(centerX, 0, size[0], 0, img_w))
+            centerY = int(Misc.map(centerY, 0, size[1], 0, img_h))
+            radius = int(Misc.map(radius, 0, size[0], 0, img_w))            
+            cv2.circle(img, (centerX, centerY), radius, range_rgb[color_area_max], 2)#画圆
+
+            if color_area_max == 'red':  #红色最大
+                color = 1
+            elif color_area_max == 'green':  #绿色最大
+                color = 2
+            elif color_area_max == 'blue':  #蓝色最大
+                color = 3
+            else:
+                color = 0
+            color_list.append(color)
+
+            if len(color_list) == 3:  #多次判断
+                # 取平均值
+                color = int(round(np.mean(np.array(color_list))))
+                color_list = []
+                if color == 1:
+                    detect_color = 'red'
+                    draw_color = range_rgb["red"]
+                elif color == 2:
+                    detect_color = 'green'
+                    draw_color = range_rgb["green"]
+                elif color == 3:
+                    detect_color = 'blue'
+                    draw_color = range_rgb["blue"]
+                else:
+                    detect_color = 'None'
+                    draw_color = range_rgb["black"]               
+        else:
+            detect_color = 'None'
+            draw_color = range_rgb["black"]
+            
+    cv2.putText(img, "Color: " + detect_color, (10, img.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.65, draw_color, 2)
+    
+    return img
+
+def run_hsv(img):
+    global draw_color
+    global color_list
+    global detect_color
+    global action_finish
+    
+    img_copy = img.copy()
+    img_h, img_w = img.shape[:2]
+
+    if not __isRunning:
+        return img
+
+    frame_resize = cv2.resize(img_copy, size, interpolation=cv2.INTER_NEAREST)
+    frame_gb = cv2.GaussianBlur(frame_resize, (3, 3), 3)      
+    frame_hsv = cv2.cvtColor(frame_gb, cv2.COLOR_BGR2HSV)  # Convert the image to the HSV color space
+
+    max_area = 0
+    color_area_max = None    
+    areaMaxContour_max = 0
+    
+    if action_finish:
+        for i in lab_data_hsv:
+            if i != 'black' and i != 'white':
+                frame_mask = cv2.inRange(frame_hsv,
+                                         (lab_data_hsv[i]['min'][0],
+                                          lab_data_hsv[i]['min'][1],
+                                          lab_data_hsv[i]['min'][2]),
+                                         (lab_data_hsv[i]['max'][0],
+                                          lab_data_hsv[i]['max'][1],
+                                          lab_data_hsv[i]['max'][2]))  # Perform bitwise operations on the original image and the mask
+                eroded = cv2.erode(frame_mask, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))  #腐蚀
+                dilated = cv2.dilate(eroded, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))) #膨胀
+                if debug:
+                    cv2.imshow(i, dilated)
+                contours = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[-2]  #找出轮廓
+                areaMaxContour, area_max = getAreaMaxContour(contours)  #找出最大轮廓
+                if areaMaxContour is not None:
+                    if area_max > max_area:#找最大面积
+                        max_area = area_max
+                        color_area_max = i
+                        areaMaxContour_max = areaMaxContour
+                        
         if max_area > 200:  # 有找到最大面积
             ((centerX, centerY), radius) = cv2.minEnclosingCircle(areaMaxContour_max)  # 获取最小外接圆
             centerX = int(Misc.map(centerX, 0, size[0], 0, img_w))
