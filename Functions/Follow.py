@@ -49,7 +49,7 @@ def load_config():
     lab_data_hsv = yaml_handle.get_yaml_data(yaml_handle.lab_hsv_file_path)
     servo_data = yaml_handle.get_yaml_data(yaml_handle.servo_file_path)
 
-__target_color = ('green',)
+__target_color = ('red1','red2')
 # 设置检测颜色
 def setBallTargetColor(target_color):
     global __target_color
