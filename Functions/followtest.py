@@ -60,7 +60,7 @@ def load_config():
     lab_data_hsv = yaml_handle.get_yaml_data(yaml_handle.lab_hsv_file_path)
     servo_data = yaml_handle.get_yaml_data(yaml_handle.servo_file_path)
 
-__target_color = ('red','red_alt') 
+__target_color = ('red_alt',) 
 # Set detection color
 def setBallTargetColor(target_color):
     global __target_color
