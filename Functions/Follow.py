@@ -41,11 +41,13 @@ range_rgb = {
 }
 
 lab_data = None
+lab_data_hsv = None
 servo_data = None
 def load_config():
-    global lab_data, servo_data
+    global lab_data, lab_data_hsv, servo_data
     
     lab_data = yaml_handle.get_yaml_data(yaml_handle.lab_file_path)
+    lab_data_hsv = yaml_handle.get_yaml_data(yaml_handle.lab_hsv_file_path)
     servo_data = yaml_handle.get_yaml_data(yaml_handle.servo_file_path)
 
 __target_color = ('green',)
@@ -250,6 +252,100 @@ def run(img):
     #img = cv2.remap(img, mapx, mapy, cv2.INTER_LINEAR)  # 畸变矫正 
 
     return img
+def run_hsv(img):
+    global radius_data
+    global x_dis, y_dis
+    global centerX, centerY, circle_radius
+    
+    img_copy = img.copy()
+    img_h, img_w = img.shape[:2]
+    
+    if not __isRunning or __target_color == ():
+        return img
+    
+    frame_resize = cv2.resize(img_copy, size, interpolation=cv2.INTER_NEAREST)
+    frame_gb = cv2.GaussianBlur(frame_resize, (3, 3), 3)
+    frame_hsv = cv2.cvtColor(frame_gb, cv2.COLOR_BGR2HSV)  # HSV instead of LAB
+    
+    area_max = 0
+    areaMaxContour = None
+
+    # Loop through HSV thresholds instead of LAB
+    for i in lab_data_hsv:
+        if i in __target_color:
+            detect_color = i
+            frame_mask = cv2.inRange(
+                frame_hsv,
+                (lab_data_hsv[i]['min'][0],
+                 lab_data_hsv[i]['min'][1],
+                 lab_data_hsv[i]['min'][2]),
+                (lab_data_hsv[i]['max'][0],
+                 lab_data_hsv[i]['max'][1],
+                 lab_data_hsv[i]['max'][2])
+            )
+            
+            eroded = cv2.erode(frame_mask, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))
+            dilated = cv2.dilate(eroded, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))
+            contours = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[-2]
+            areaMaxContour, area_max = getAreaMaxContour(contours)
+
+    # If a valid contour was found
+    if areaMaxContour is not None and area_max > 100:
+        rect = cv2.minAreaRect(areaMaxContour)
+        box = np.int0(cv2.boxPoints(rect))
+
+        # Map box coordinates back to original image size
+        for j in range(4):
+            box[j, 0] = int(Misc.map(box[j, 0], 0, size[0], 0, img_w))
+            box[j, 1] = int(Misc.map(box[j, 1], 0, size[1], 0, img_h))
+
+        cv2.drawContours(img, [box], -1, (0,255,255), 2)
+
+        # Compute center + radius
+        ptime_start_x, ptime_start_y = box[0, 0], box[0, 1]
+        pt3_x, pt3_y = box[2, 0], box[2, 1]
+        radius = abs(ptime_start_x - pt3_x)
+        centerX, centerY = int((ptime_start_x + pt3_x) / 2), int((ptime_start_y + pt3_y) / 2)
+
+        cv2.circle(img, (centerX, centerY), 5, (0, 255, 255), -1)
+
+        # Radius smoothing
+        radius_data.append(radius)
+        data = pd.DataFrame(radius_data)
+        data_ = data.copy()
+        u = data_.mean()
+        std = data_.std()
+        data_c = data[np.abs(data - u) <= std]
+        circle_radius = round(data_c.mean()[0], 1)
+
+        if len(radius_data) == 5:
+            radius_data.remove(radius_data[0])
+
+        # PID control
+        x_pid.SetPoint = img_w / 2
+        x_pid.update(centerX)
+        dx = int(x_pid.output)
+        use_time = abs(dx * 0.00025)
+        x_dis += dx
+
+        x_dis = max(servo_data['servo2'] - 400, min(x_dis, servo_data['servo2'] + 400))
+
+        y_pid.SetPoint = img_h / 2
+        y_pid.update(centerY)
+        dy = int(y_pid.output)
+        use_time = round(max(use_time, abs(dy * 0.00025)), 5)
+        y_dis += dy
+
+        y_dis = max(servo_data['servo1'], min(y_dis, 2000))
+
+        Board.setPWMServoPulse(1, y_dis, use_time * 1000)
+        Board.setPWMServoPulse(2, x_dis, use_time * 1000)
+        time.sleep(use_time)
+
+    else:
+        centerX, centerY = -1, -1
+
+    return img
 
 if __name__ == '__main__':
     init()
@@ -266,7 +362,8 @@ if __name__ == '__main__':
         ret, img = my_camera.read()
         if img is not None:
             frame = img.copy()
-            Frame = run(frame)           
+            # Frame = run(frame)           
+            Frame = run_hsv(frame)           
             cv2.imshow('Frame', Frame)
             key = cv2.waitKey(1)
             if key == 27:
