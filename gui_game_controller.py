@@ -2,34 +2,24 @@
 
 import tkinter as tk
 from game_functions.GameController import GameController
-from HiwonderSDK.yaml_handle import load_robot_config
 
-
+BROKER_IP = "localhost"
 
 class GameGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Game Controller")
-        
-
-
-        config = load_robot_config()
-        BROKER_IP = config.get("robot", {}).get("broker_ip", "127.0.0.1")
 
         self.controller = GameController(
             broker_ip=BROKER_IP,
             on_event=self.add_log,
-            on_role_update=self.update_roles,
-            on_disconnect=self.handle_disconnect
+            on_role_update=self.update_roles
         )
 
         self.guards = {}
         self.intruders = {}
 
         self._build_layout()
-
-        # start heartbeat monitor
-        self.root.after(1000, self._heartbeat_monitor)
 
     # ---------------------------------------------------------
     # GUI LAYOUT
@@ -71,36 +61,14 @@ class GameGUI:
 
     def update_roles(self, robot_name, role, role_id):
         if role == "guard":
-            lbl = tk.Label(self.guard_frame, text=f"Guard {role_id}: {robot_name}", fg="green")
+            lbl = tk.Label(self.guard_frame, text=f"Guard {role_id}: {robot_name}")
             lbl.pack(anchor="w")
             self.guards[role_id] = lbl
 
         elif role == "intruder":
-            lbl = tk.Label(self.intruder_frame, text=f"Intruder {role_id}: {robot_name}", fg="green")
+            lbl = tk.Label(self.intruder_frame, text=f"Intruder {role_id}: {robot_name}")
             lbl.pack(anchor="w")
             self.intruders[role_id] = lbl
-
-
-    # ---------------------------------------------------------
-    # INTERNAL HELPER
-    # ---------------------------------------------------------
-    def _heartbeat_monitor(self):
-        disconnected = self.controller.check_robot_timeouts()
-
-        self.root.after(1000, self._heartbeat_monitor)
-
-    def handle_disconnect(self, mac, role, role_id):
-        if role == "guard" and role_id in self.guards:
-            lbl = self.guards[role_id]
-            lbl.config(fg="red")
-            self.add_log(f"[DISCONNECT] Guard {role_id} ({mac}) lost connection")
-
-        elif role == "intruder" and role_id in self.intruders:
-            lbl = self.intruders[role_id]
-            lbl.config(fg="red")
-            self.add_log(f"[DISCONNECT] Intruder {role_id} ({mac}) lost connection")
-
-
 
 
 # ---------------------------------------------------------

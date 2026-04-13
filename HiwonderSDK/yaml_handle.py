@@ -19,7 +19,6 @@ _project_root = os.path.abspath(os.path.join(_pkg_dir, '..'))
 # and `/home/pi/TonyPi/servo_config.yaml`, but here we default to
 # local copies shipped with this repository.
 lab_file_path = os.path.join(_project_root, 'lab_config.yaml')
-lab_hsv_file_path = os.path.join(_project_root, 'lab_config_hsv.yaml')
 servo_file_path = os.path.join(_project_root, 'servo_config.yaml')
 robot_config_path = os.path.join(_project_root, 'robot_config.yaml')
 

@@ -1,14 +1,14 @@
 robot:
-  client_name: "testbot"
+  client_name: "newbot"
   broker_ip: "192.168.137.1"
 
 mqtt:
   subscriptions:
-    - "robot/testbot/action_group"
-    - "robot/testbot/script"
-    - "robot/testbot/stop"
-    - "robot/testbot/heartbeat"
-    - "robot/testbot/status"
+    - "robot/newbot/action_group"
+    - "robot/newbot/script"
+    - "robot/newbot/stop"
+    - "robot/newbot/heartbeat"
+    - "robot/newbot/status"
 
 startup:
   initial_script: "" 

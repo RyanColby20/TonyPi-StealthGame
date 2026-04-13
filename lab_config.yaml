@@ -4,8 +4,8 @@
 # update these values accordingly.
 
 red:
-  min: [20, 150, 150]
-  max: [255, 200, 200]
+  min: [0, 140, 120]
+  max: [255, 255, 255]
 
 blue:
   min: [50, 115, 150]
@@ -16,7 +16,7 @@ green:
   max: [255, 130, 160]
 
 black:
-  min: [0, 100, 100]
+  min: [0, 110, 110]
   max: [100, 155, 155]
 
 white:
