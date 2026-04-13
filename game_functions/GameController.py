@@ -10,9 +10,10 @@ import time
 from robot_functions.robot_comm import RobotComm
 
 class GameController:
-    def __init__(self, broker_ip, on_event=None, on_role_update=None):
+    def __init__(self, broker_ip, on_event=None, on_role_update=None, on_disconnect=None):
         self.on_event = on_event
         self.on_role_update = on_role_update
+        self.on_disconnect = on_disconnect
 
         self.robot_registry = {}  
         # structure:
@@ -196,3 +197,22 @@ class GameController:
     def _notify_event(self, msg):
         if self.on_event:
             self.on_event(msg)
+
+
+    # ---------------------------------------------------------
+    # CHECK ROBOT TIME OUTS FOR GUI
+    # ---------------------------------------------------------
+
+    def check_robot_timeouts(self, timeout=15.0):
+        now = time.time()
+        disconnected = []
+
+        for mac, info in self.robot_registry.items():
+            if now - info["last_seen"] > timeout:
+                disconnected.append((mac, info["role"], info["id"]))
+
+                # 🔥 Notify GUI
+                if self.on_disconnect:
+                    self.on_disconnect(mac, info["role"], info["id"])
+
+        return disconnected
