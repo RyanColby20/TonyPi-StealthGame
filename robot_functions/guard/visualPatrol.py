@@ -1,16 +1,7 @@
 #!/usr/bin/python3
 # coding=utf8
 """
-VisualPatrol rewritten to use Follow.py as a reusable module instead of
-launching it as a separate process.
-
-Behavior:
-- Patrols a floor line (default black)
-- Starts by looking down at the floor
-- Periodically pauses to look up and scan for a red intruder
-- After scanning, looks back down at the floor
-- If red is detected, switches into Follow mode in-process
-- After losing the intruder, returns to patrol mode and looks back down
+Visual patrol script for the TonyPi/HiWonder guard robot.
 """
 
 import sys
@@ -27,16 +18,12 @@ import hiwonder.yaml_handle as yaml_handle
 
 import Follow
 
-# -----------------------------------------------------------------------------
-# Python version check
-# -----------------------------------------------------------------------------
+# Exit if not using Python 3
 if sys.version_info.major == 2:
     print('Please run this program with python3!')
     sys.exit(0)
 
-# -----------------------------------------------------------------------------
-# Global state
-# -----------------------------------------------------------------------------
+# Runtime state
 __target_color = ('black',)
 lab_data = None
 servo_data = None
@@ -47,7 +34,7 @@ line_centerx = -1
 mapx = None
 mapy = None
 
-# Pose where the intruder was seen
+# Last intruder pose
 last_detected_pitch = None
 last_detected_yaw = None
 
@@ -76,48 +63,43 @@ size = (640, 480)
 
 
 def setLineTargetColor(target_color):
-    """Set the target line colour as a tuple of colour names."""
+    # Set the line color to track.
     global __target_color
     __target_color = target_color
     return (True, (), 'SetVisualPatrolColor')
 
 
 def load_config():
-    """Load LAB colour thresholds and servo positions from YAML files."""
+    # Load LAB and servo settings from YAML.
     global lab_data, servo_data
     lab_data = yaml_handle.get_yaml_data(yaml_handle.lab_file_path)
     servo_data = yaml_handle.get_yaml_data(yaml_handle.servo_file_path)
 
 
 def initMove():
-    """Move the head servos to their configured default positions."""
+    # Move the head to its default pose.
     Board.setPWMServoPulse(1, servo_data['servo1'], 500)  # pitch
     Board.setPWMServoPulse(2, servo_data['servo2'], 500)  # yaw
 
-
-def look_down_at_floor():
-    """Point head down toward the floor."""
-    Board.setPWMServoPulse(1, FLOOR_PITCH, 500)  # pitch down
-    Board.setPWMServoPulse(2, FLOOR_YAW, 500)    # yaw center
-    time.sleep(0.5)
-
-
 def reset():
-    """Reset runtime state before patrol starts."""
+    # Reset patrol state.
     global line_centerx, __target_color
     line_centerx = -1
     __target_color = ()
 
 
 def init():
+    # Load config and set default pose.
     print("VisualPatrol Init")
     load_config()
     initMove()
 
 
+
+
 def start():
-    """Start patrol mode."""
-    global __isRunning, current_mode
+    # Start patrol mode
+    global __isRunning
     reset()
     look_down_at_floor()   # begin by looking at the floor
     look_up_and_scan()     # do the startup scan
@@ -128,12 +110,14 @@ def start():
 
 
 def stop():
+    # Stop patrol mode.
     global __isRunning
     __isRunning = False
     print("VisualPatrol Stop")
 
 
 def exit():
+    # Stop patrol and return to a safe pose.
     global __isRunning
     __isRunning = False
     try:
@@ -144,6 +128,11 @@ def exit():
         AGC.runActionGroup('stand_low')
     except Exception:
         pass
+    print("VisualPatrol Exit")
+
+
+def save_follow_start_pose(pitch, yaw):
+    # Save the head pose for Follow.py.
     try:
         Board.setPWMServoPulse(1, FLOOR_PITCH, 500)
         Board.setPWMServoPulse(2, FLOOR_YAW, 500)
@@ -153,7 +142,7 @@ def exit():
 
 
 def look_up_and_scan():
-    """Initial sweep: look up, scan wide, then return to floor."""
+    # Do an opening head sweep.
     Board.setPWMServoPulse(1, 1500, 500)
     time.sleep(0.5)
     for pos in range(servo_data['servo2'] - 350, servo_data['servo2'] + 351, 75):
@@ -163,7 +152,7 @@ def look_up_and_scan():
 
 
 def getAreaMaxContour(contours):
-    """Return the largest contour and its area."""
+    # Return the largest valid contour.
     contour_area_max = 0
     area_max_contour = None
     for c in contours:
@@ -176,7 +165,7 @@ def getAreaMaxContour(contours):
 
 
 def move():
-    """Background thread: walk according to the line position during patrol only."""
+    # Move the robot based on line position.
     global line_centerx
     img_centerx = 320
     while True:
@@ -202,7 +191,7 @@ th.start()
 
 
 def run(img):
-    """Process one frame to find the line and update line_centerx."""
+    # Process a frame for line following.
     global line_centerx, __target_color
 
     if not __isRunning or __target_color == () or current_mode != 'patrol':
@@ -273,10 +262,9 @@ def run(img):
     return img
 
 
-def start_follow_mode(start_pitch, start_yaw):
-    """Switch from patrol mode into Follow mode without launching another script."""
-    global __isRunning, current_mode, follow_start_time, follow_visible_since, last_red_seen_time
-
+def follow_intruder(my_camera, start_pitch, start_yaw):
+    # Stop patrol and launch Follow.py.
+    global __isRunning
     __isRunning = False
     current_mode = 'follow'
     follow_start_time = time.time()
@@ -362,7 +350,7 @@ def trigger_game_over():
 
 
 def scan_for_intruder(my_camera):
-    """Pause patrol, scan slowly for red, then either resume or switch to follow mode."""
+    # Pause patrol and scan for a red intruder.
     global __isRunning, last_detected_pitch, last_detected_yaw
 
     __isRunning = False
@@ -412,6 +400,7 @@ def scan_for_intruder(my_camera):
 
 
 if __name__ == '__main__':
+    # Run visual patrol as a standalone script.
     from CameraCalibration.CalibrationConfig import calibration_param_path
 
     # Camera calibration
