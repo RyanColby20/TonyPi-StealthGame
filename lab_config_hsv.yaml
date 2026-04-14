@@ -3,17 +3,17 @@
 # If you calibrate your own camera and lighting conditions you should
 # update these values accordingly.
 
-red:
-  min: [0, 0, 80]
-  max: [15, 255, 255]
 
-red_alt:
-  min: [165, 0, 80]
-  max: [180, 255, 255]
+    # lower_red1 = np.array([110, 180, 180])
+    # upper_red1 = np.array([160, 255, 255])
+
+red:
+  min: [110, 200, 200]
+  max: [150, 255, 255]
 
 blue:
-  min: [90, 80, 80]
-  max: [130, 255, 255]
+  min: [0, 100, 100]
+  max: [255, 255, 255]
 
 green:
   min: [40, 80, 80]
