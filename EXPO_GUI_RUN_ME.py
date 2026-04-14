@@ -10,15 +10,12 @@ BUTTON_ACTIONS = {
     "Stand": ["stand"],
     "Wave": ["wave"],
     "Kick": ["kick"],
-    "Sit": ["sit"],
-    "Action 5": ["bow"],
-    "Action 6": ["sit"],
-    "Action 7": ["demo_sequence"],
-    "Action 8": ["pushup"],
-    "Action 9": ["walk_forward"],
-    "Action 10": ["walk_backward"],
-    "Action 11": ["turn_left"],
-    "Action 12": ["turn_right"]
+    "Twist": ["twist"],
+    "Bow": ["bow"],
+    "Wing Chun": ["wing_chun"],
+    "Workout": ["situps", "squats", "aerobics", "workout1"],
+    "Dance": ["dance1", "dance2", "dance3","dance4","dance5","dance6","dance7"],
+    "Pose": ["pose1","pose2","pose3","pose4","pose5","pose6","pose7","pose8","pose9"]
 }
 
 
@@ -226,7 +223,7 @@ class DemoGUI:
 
         labels = list(BUTTON_ACTIONS.keys())
 
-        rows = 4
+        rows = 3
         cols = 3
         idx = 0
 
