@@ -7,13 +7,13 @@ from broker_controller import BrokerController
 BROKER_IP = "localhost"
 
 BUTTON_ACTIONS = {
-    "Stand": ["stand"],
+    "Boast": ["chest"],
     "Wave": ["wave"],
-    "Kick": ["kick"],
+    "Kick": ["right_kick","left_kick"],
     "Twist": ["twist"],
     "Bow": ["bow"],
     "Wing Chun": ["wing_chun"],
-    "Workout": ["situps", "squats", "aerobics", "workout1"],
+    "Workout": ["sit_ups", "squats", "aerobics", "workout1"],
     "Dance": ["dance1", "dance2", "dance3","dance4","dance5","dance6","dance7"],
     "Pose": ["pose1","pose2","pose3","pose4","pose5","pose6","pose7","pose8","pose9"]
 }
