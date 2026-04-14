@@ -1,0 +1,28 @@
+# HSV colour thresholds
+# These values are example thresholds used for colour detection in HSV space.
+# If you calibrate your own camera and lighting conditions you should
+# update these values accordingly.
+
+
+    # lower_red1 = np.array([110, 160, 160])
+    # upper_red1 = np.array([170, 255, 255])
+
+red:
+  min: [128, 120, 120]
+  max: [132, 255, 255]
+
+blue:
+  min: [90, 80, 80]
+  max: [130, 255, 255]
+
+green:
+  min: [40, 80, 80]
+  max: [85, 255, 255]
+
+black:
+  min: [0, 0, 0]
+  max: [180, 255, 60]
+
+white:
+  min: [0, 0, 200]
+  max: [180, 40, 255]

@@ -7,14 +7,14 @@ import math
 import threading
 import numpy as np
 import pandas as pd
-from HiwonderSDK.hiwonder.PID import PID
-import HiwonderSDK.hiwonder.Misc as Misc
-import hiwonder.Board as Board
-import HiwonderSDK.hiwonder.Camera as Camera
-import HiwonderSDK.hiwonder.ActionGroupControl as AGC
-import HiwonderSDK.hiwonder.yaml_handle as yaml_handle
+from HiwonderSDK.PID import PID
+import HiwonderSDK.Misc as Misc
+import HiwonderSDK.Board as Board
+import HiwonderSDK.Camera as Camera
+import HiwonderSDK.ActionGroupControl as AGC
+import HiwonderSDK.yaml_handle as yaml_handle
 import time
-from CameraCalibration.CalibrationConfig import *
+from Functions.CameraCalibration.CalibrationConfig import *
 
 # Follow
 
@@ -43,6 +43,7 @@ range_rgb = {
 
 lab_data = None
 servo_data = None
+follow_thread = None
 
 # Loads LAB color thresholds and servo defaults from yaml
 def load_config():
@@ -94,7 +95,7 @@ def reset():
     x_dis = servo_data['servo2']
     y_dis = servo_data['servo1']
     start_count = True
-    __target_color = ()
+    __target_color = ('red',)
     centerX, centerY = -2, -2
     
 # App initialization call
@@ -106,9 +107,15 @@ def init():
 __isRunning = False
 # Enables tracking
 def start():
-    global __isRunning
+    global __isRunning, follow_thread
     reset()
     __isRunning = True
+
+    if follow_thread is None or not follow_thread.is_alive():
+        follow_thread = threading.Thread(target=move)
+        follow_thread.daemon = True
+        follow_thread.start()
+
     print("Follow Start")
 
 # Disables tracking
@@ -203,10 +210,6 @@ def move(required_detect_seconds=15.0):
             detect_start = None
             time.sleep(0.01)
 
-# Start the action thread
-th = threading.Thread(target=move)
-th.setDaemon(True)
-th.start()
 
 radius_data = []
 size = (320, 240)

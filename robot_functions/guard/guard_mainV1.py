@@ -1,7 +1,11 @@
-# guard_main.py
 """
 Fully independent guard state machine.
 Run this file directly on the robot.
+
+New Additions / Changes:
+1. This file is now the main control center for the guard robot.
+2. Visual patrol and follow were changed into classes so they work inside this file instead of acting like separate full programs.
+3. The state changes now actually start and stop the correct behaviors.
 """
 
 import time
@@ -9,29 +13,23 @@ import signal
 import sys
 
 from robot_functions.robot_comm import RobotComm
-from robot_functions.guard.visualPatrol import Visual_Patrol_cls
-from robot_functions.guard.Follow import Follow_cls 
+from robot_functions.guard.VisualPatrol_ClassV1 import VisualPatrol_Class
+from robot_functions.guard.Follow_ClassV1 import Follow_Class
 from robot_functions.robot_controller import TonyPiController
-
 from robot_functions.game.robot_connection import RobotConnectionHandler
-
 
 
 class GuardMain:
     def __init__(self, guard_id, broker_ip, robot_controller):
-
         self.id = guard_id
         self.robot = robot_controller
 
-        # External behavior modules
-        self.visual_patrol = Visual_Patrol_cls(robot_controller)
-        self.follow_intruder = Follow_cls(robot_controller)
+        self.visual_patrol = VisualPatrol_Class(robot_controller)
+        self.follow_intruder = Follow_Class(robot_controller)
 
-        # FSM state
         self.state = "WAITING_FOR_GAME_START"
         self.running = True
 
-        # MQTT client
         self.comm = RobotComm(
             client_name=f"guard_{guard_id}",
             broker_ip=broker_ip,
@@ -56,7 +54,6 @@ class GuardMain:
         topic = msg.topic
         payload = msg.payload.decode()
 
-        # System-wide lifecycle events
         if topic == "game/system/start":
             self._start_game()
             return
@@ -73,7 +70,6 @@ class GuardMain:
             self._enter_game_over()
             return
 
-        # Robot-specific commands
         if topic == f"game/guard/{self.id}/command":
             if payload == "stop":
                 self._stop_game()
@@ -87,27 +83,41 @@ class GuardMain:
     # ---------------------------------------------------------
     def _start_game(self):
         if self.state == "WAITING_FOR_GAME_START":
+            self.follow_intruder.stop()
+            self.visual_patrol.start()
             self.state = "VISUAL_PATROL"
             self._publish_state()
-            print("[GUARD] Game started → entering visual patrol")
+            print("[GUARD] Game started -> entering visual patrol")
 
     def _stop_game(self):
+        self.visual_patrol.stop()
+        self.follow_intruder.stop()
         self.state = "WAITING_FOR_GAME_START"
         self.robot.stop_all()
         self._publish_state()
-        print("[GUARD] Game stopped → waiting")
+        print("[GUARD] Game stopped -> waiting")
 
     def _reset_game(self):
+        self.visual_patrol.stop()
+        self.follow_intruder.stop()
         self.state = "WAITING_FOR_GAME_START"
         self.robot.stop_all()
         self._publish_state()
         print("[GUARD] Game reset")
 
     def _trigger_game_over(self):
-        print("[GUARD] Intruder captured → triggering game over")
+        print("[GUARD] Intruder captured -> triggering game over")
         self.comm.publish("game/system/game_over", f"guard_{self.id}")
         self.state = "GAME_OVER"
         self._publish_state()
+
+    def _enter_game_over(self):
+        self.visual_patrol.stop()
+        self.follow_intruder.stop()
+        self.state = "GAME_OVER"
+        self.robot.stop_all()
+        self._publish_state()
+        print("[GUARD] Entering GAME_OVER state")
 
     # ---------------------------------------------------------
     # PUBLISH HELPERS
@@ -122,57 +132,41 @@ class GuardMain:
     # STATE LOGIC
     # ---------------------------------------------------------
     def _state_visual_patrol(self, dt):
-        """
-        Delegates all patrol logic to VisualPatrol.
-        Returns one of:
-            - "continue"
-            - "intruder_detected"
-        """
         result = self.visual_patrol.update(dt)
 
         if result == "intruder_detected":
-            print("[GUARD] Intruder detected → switching to FOLLOW")
+            print("[GUARD] Intruder detected -> switching to FOLLOW")
+            self.visual_patrol.stop()
+            self.follow_intruder.start(
+                initial_head_pose=self.visual_patrol.get_last_detection_pose()
+            )
             self.state = "FOLLOW"
             self._publish_state()
 
-
     def _state_follow(self, dt):
-        """
-        Delegates all chase logic to FollowIntruder.
-        Returns one of:
-            - "continue"
-            - "intruder_captured"
-            - "lost_intruder"
-        """
         result = self.follow_intruder.update(dt)
 
         if result == "intruder_captured":
-            print("[GUARD] Intruder captured → triggering game over")
+            print("[GUARD] Intruder captured -> triggering game over")
+            self.follow_intruder.stop()
             self._trigger_game_over()
             return
 
         if result == "lost_intruder":
-            print("[GUARD] Lost intruder → returning to patrol")
+            print("[GUARD] Lost intruder -> returning to patrol")
+            self.follow_intruder.stop()
+            self.visual_patrol.start()
             self.state = "VISUAL_PATROL"
             self._publish_state()
 
-
     def _state_game_over(self):
-        """
-        Perform any game-over actions, then wait.
-        """
+        self.visual_patrol.stop()
+        self.follow_intruder.stop()
         self.robot.stop_all()
         time.sleep(1.0)
         self.state = "WAITING_FOR_GAME_START"
         self._publish_state()
-        print("[GUARD] Game over actions complete → waiting")
-
-
-    def _enter_game_over(self):
-        self.state = "GAME_OVER"
-        self.robot.stop_all()
-        self._publish_state()
-        print("[GUARD] Entering GAME_OVER state")
+        print("[GUARD] Game over actions complete -> waiting")
 
     # ---------------------------------------------------------
     # MAIN LOOP
@@ -203,6 +197,8 @@ class GuardMain:
     def shutdown(self):
         print("[GUARD] Shutting down...")
         self.running = False
+        self.visual_patrol.shutdown()
+        self.follow_intruder.shutdown()
         self.robot.stop_all()
         self.comm.disconnect()
 
@@ -211,7 +207,6 @@ class GuardMain:
 # ENTRY POINT
 # ---------------------------------------------------------
 def main():
-  
     connector = RobotConnectionHandler(role="guard")
     guard_id, broker_ip = connector.register_and_wait_for_id()
 
@@ -223,7 +218,6 @@ def main():
         robot_controller=robot
     )
 
-    # Handle CTRL-C
     def handle_sigint(sig, frame):
         guard.shutdown()
         sys.exit(0)

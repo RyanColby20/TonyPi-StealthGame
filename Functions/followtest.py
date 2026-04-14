@@ -13,19 +13,27 @@ import hiwonder.Board as Board
 import hiwonder.Camera as Camera
 import hiwonder.ActionGroupControl as AGC
 # import hiwonder.yaml_handle as yaml_handle
-from HiwonderSDK.yaml_handle as yaml_handle
 from CameraCalibration.CalibrationConfig import *
 
-debug = True
+import os, sys
+current = os.path.dirname(os.path.abspath(__file__))
+parent = os.path.abspath(os.path.join(current,".."))
+sys.path.append(parent)
+
+import HiwonderSDK.yaml_handle as yaml_handle
+
+# Follow
+
+debug = False
 
 if sys.version_info.major == 2:
     print('Please run this program with python3!')
     sys.exit(0)
 
-#加载参数
+# Load parameters
 param_data = np.load(calibration_param_path + '.npz')
 
-#获取参数
+# Get parameters
 mtx = param_data['mtx_array']
 dist = param_data['dist_array']
 newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (640, 480), 0, (640, 480))
@@ -42,6 +50,9 @@ range_rgb = {
 lab_data = None
 lab_data_hsv = None
 servo_data = None
+follow_thread = None
+
+# Loads LAB color thresholds and servo defaults from yaml
 def load_config():
     global lab_data, lab_data_hsv, servo_data
     
@@ -49,18 +60,28 @@ def load_config():
     lab_data_hsv = yaml_handle.get_yaml_data(yaml_handle.lab_hsv_file_path)
     servo_data = yaml_handle.get_yaml_data(yaml_handle.servo_file_path)
 
-__target_color = ('red1','red2')
-# 设置检测颜色
+
+
+###
+### COLOR TO TARGET
+__target_color = ('red',) 
+###
+###
+
+
+
+# Set detection color
 def setBallTargetColor(target_color):
     global __target_color
 
     __target_color = target_color
     return (True, ())
 
-# 初始位置
+# Moves the robot to its initial starting position
 def initMove():
     Board.setPWMServoPulse(1, servo_data['servo1'], 500)
     Board.setPWMServoPulse(2, servo_data['servo2'], 500)
+    #Board.setPWMServoPulse(1,1500,500)
 
 load_config()
 
@@ -71,9 +92,10 @@ x_dis = servo_data['servo2']
 y_dis = servo_data['servo1']
 start_count = True
 centerX, centerY = -2, -2
-x_pid = PID(P=0.4, I=0.02, D=0.02)#pid初始化
+x_pid = PID(P=0.4, I=0.02, D=0.02) # PID initialization
 y_pid = PID(P=0.4, I=0.02, D=0.02)
-# 变量重置
+
+# Resets PID, robot positions, and detection state
 def reset():
     global d_x, d_y
     global start_count
@@ -90,80 +112,135 @@ def reset():
     x_dis = servo_data['servo2']
     y_dis = servo_data['servo1']
     start_count = True
-    __target_color = ()
+    __target_color = ('red',)
     centerX, centerY = -2, -2
     
-# app初始化调用
+# App initialization call
 def init():
     print("Follow Init")
     load_config()
     initMove()
 
 __isRunning = False
-# app开始玩法调用
+# Enables tracking
 def start():
-    global __isRunning
+    global __isRunning, follow_thread
     reset()
     __isRunning = True
+
+    if follow_thread is None or not follow_thread.is_alive():
+        follow_thread = threading.Thread(target=move)
+        follow_thread.daemon = True
+        follow_thread.start()
+
     print("Follow Start")
 
-# app停止玩法调用
+# Disables tracking
 def stop():
     global __isRunning
     __isRunning = False
     print("Follow Stop")
 
-# app退出玩法调用
+# Stops game and runs a stand action group
 def exit():
     global __isRunning
     __isRunning = False
     AGC.runActionGroup('stand_slow')
     print("Follow Exit")
 
-# 找出面积最大的轮廓
-# 参数为要比较的轮廓的列表
+# Find the contour with the largest area 
+# Parameter: list of contours to compare
 def getAreaMaxContour(contours):
     contour_area_temp = 0
     contour_area_max = 0
     area_max_contour = None
 
-    for c in contours:  # 历遍所有轮廓
-        contour_area_temp = math.fabs(cv2.contourArea(c))  # 计算轮廓面积
+    for c in contours:  # Iterate through all contours
+        contour_area_temp = math.fabs(cv2.contourArea(c))  # Calculate contour area
         if contour_area_temp > contour_area_max:
             contour_area_max = contour_area_temp
-            if contour_area_temp >= 100:  # 只有在面积大于设定值时，最大面积的轮廓才是有效的，以过滤干扰
+            if contour_area_temp >= 100:  # Only contours above this threshold are valid to filter noise
                 area_max_contour = c
 
-    return area_max_contour, contour_area_max  # 返回最大的轮廓
+    return area_max_contour, contour_area_max  # Return the largest contour
 
 CENTER_X = 320
 circle_radius = 0
-#执行动作组
-def move():
+
+# Execute action group
+import time
+HEAD_TILT_SERVO_ID = 2
+HEAD_UP_PULSE = 1500
+MOVE_TIME_MS = 300
+
+# Runs continuously in a background thread, in 3 steps
+# 1. Tilts the robot head up
+# 2. Waits for detection
+# 3. Decisions if intruder is detected
+    # a. Runs "stand"
+    # b. Starts a timer for uninterrupted detection
+        # I. If detecction lasts long enough (15 seconds) robot does a twist to demonstrate victory
+        # II. Else, turns left or right to scan for intruder, or moves forward or backward based on intruder distance
+# 4. If intruder is lost -> detection timer resets
+
+def move(required_detect_seconds=15.0):
     
+    Board.setPWMServoPulse(HEAD_TILT_SERVO_ID, HEAD_UP_PULSE, MOVE_TIME_MS)
+    time.sleep(MOVE_TIME_MS / 1000)
+    detect_start = None  # Uninterrupted detection begins
+
     while True:
-        if __isRunning:
-            if centerX >= 0:
-                if centerX - CENTER_X > 100 or x_dis - servo_data['servo2'] < -80:  # 不在中心，根据方向让机器人转向一步
-                    AGC.runActionGroup('turn_right_small_step')
-                elif centerX - CENTER_X < -100 or x_dis - servo_data['servo2'] > 80:
-                    AGC.runActionGroup('turn_left_small_step')                        
-                elif 100 > circle_radius > 0:
-                    AGC.runActionGroup('go_forward')
-                elif 180 < circle_radius:
-                    AGC.runActionGroup('back_fast')
+        if not __isRunning:
+            detect_start = None  # treat as interruption
+            time.sleep(0.01)
+            continue
+
+        # --- Detection logic ---
+        if centerX >= 0:
+            AGC.runActionGroup('stand')
+            # start uninterrupted timer if we just regained detection
+            if detect_start is None:
+                detect_start = time.monotonic()
+
+            # if uninterrupted detection has lasted long enough, stop/return
+            if (time.monotonic() - detect_start) >= required_detect_seconds:
+                AGC.runActionGroup('twist')
+                print("GUARD IS A WINNER")
+                # Optional "stop" action if your robot has one:
+                # AGC.runActionGroup('stand') or AGC.stopActionGroup() depending on your SDK
+                return True
+
+            # --- your existing movement logic (unchanged) ---
+            
+            CENTER_DEADZONE = 150
+            HEAD_DEADZONE = 120
+            
+            if centerX - CENTER_X > CENTER_DEADZONE or x_dis - servo_data['servo2'] < -HEAD_DEADZONE:
+                AGC.runActionGroup('turn_right_small_step')
+            elif centerX - CENTER_X < -CENTER_DEADZONE or x_dis - servo_data['servo2'] > HEAD_DEADZONE:
+                AGC.runActionGroup('turn_left_small_step')
+            elif circle_radius > 0:
+                AGC.runActionGroup('go_forward')
+                AGC.runActionGroup('go_forward')
+                AGC.runActionGroup('go_forward')
+                AGC.runActionGroup('go_forward')
+                AGC.runActionGroup('go_forward')
+                AGC.runActionGroup('go_forward')
+            #elif 180 < circle_radius:
+                #AGC.runActionGroup('back_fast')
             else:
                 time.sleep(0.01)
+
         else:
+            # lost detection → reset timer
+            detect_start = None
             time.sleep(0.01)
 
-#启动动作的线程
-th = threading.Thread(target=move)
-th.setDaemon(True)
-th.start()
 
 radius_data = []
 size = (320, 240)
+
+# Function for image processing to help with tracking
 def run(img):
     global radius_data
     global x_dis, y_dis
@@ -177,7 +254,7 @@ def run(img):
     
     frame_resize = cv2.resize(img_copy, size, interpolation=cv2.INTER_NEAREST)
     frame_gb = cv2.GaussianBlur(frame_resize, (3, 3), 3)   
-    frame_lab = cv2.cvtColor(frame_gb, cv2.COLOR_BGR2LAB)  # 将图像转换到LAB空间
+    frame_lab = cv2.cvtColor(frame_gb, cv2.COLOR_BGR2LAB)  # Convert image to LAB color space
     
     area_max = 0
     areaMaxContour = 0
@@ -190,33 +267,36 @@ def run(img):
                                       lab_data[i]['min'][2]),
                                      (lab_data[i]['max'][0],
                                       lab_data[i]['max'][1],
-                                      lab_data[i]['max'][2]))  #对原图像和掩模进行位运算
-            eroded = cv2.erode(frame_mask, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))  #腐蚀
-            dilated = cv2.dilate(eroded, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))) #膨胀
-            contours = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[-2]  # 找出轮廓
-            areaMaxContour, area_max = getAreaMaxContour(contours)  # 找出最大轮廓
-    if areaMaxContour is not None and area_max > 100:  # 有找到最大面积
-        rect = cv2.minAreaRect(areaMaxContour)#最小外接矩形
-        box = np.int0(cv2.boxPoints(rect))#最小外接矩形的四个顶点
+                                      lab_data[i]['max'][2]))  # Bitwise mask
+            cv2.imshow('mask', frame_mask) ## ADDED FOR TESTING
+            eroded = cv2.erode(frame_mask, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))  # Erode
+            dilated = cv2.dilate(eroded, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))) # Dilate
+            contours = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[-2]  # Find contours
+            areaMaxContour, area_max = getAreaMaxContour(contours)  # Find largest contour
+            # print('area_max =', area_max) ## ADDED FOR TESTING
+    if areaMaxContour is not None and area_max > 100:  # Largest valid contour found
+        rect = cv2.minAreaRect(areaMaxContour) # Minimum bounding rectangle
+        box = np.int0(cv2.boxPoints(rect)) # Four corner points of the rectangle
         for j in range(4):
             box[j, 0] = int(Misc.map(box[j, 0], 0, size[0], 0, img_w))
             box[j, 1] = int(Misc.map(box[j, 1], 0, size[1], 0, img_h))
 
-        cv2.drawContours(img, [box], -1, (0,255,255), 2)#画出四个点组成的矩形
-        #获取矩形的对角点
+        cv2.drawContours(img, [box], -1, (0,255,255), 2) # Draw rectangle
+        # Get diagonal points
         ptime_start_x, ptime_start_y = box[0, 0], box[0, 1]
         pt3_x, pt3_y = box[2, 0], box[2, 1]
         radius = abs(ptime_start_x - pt3_x)
-        centerX, centerY = int((ptime_start_x + pt3_x) / 2), int((ptime_start_y + pt3_y) / 2)#中心点       
-        cv2.circle(img, (centerX, centerY), 5, (0, 255, 255), -1)#画出中心点
+        centerX, centerY = int((ptime_start_x + pt3_x) / 2), int((ptime_start_y + pt3_y) / 2) # Center point
+        print('CenterX =', centerX, 'centerY =', centerY, 'circle_radius =', circle_radius) ## ADDED FOR TESTING
+        cv2.circle(img, (centerX, centerY), 5, (0, 255, 255), -1) # Draw center point
           
         use_time = 0       
         
         radius_data.append(radius)
         data = pd.DataFrame(radius_data)
         data_ = data.copy()
-        u = data_.mean()  # 计算均值
-        std = data_.std()  # 计算标准差
+        u = data_.mean()  # Compute mean
+        std = data_.std()  # Compute standard deviation
 
         data_c = data[np.abs(data - u) <= std]
         circle_radius = round(data_c.mean()[0], 1)
@@ -224,11 +304,11 @@ def run(img):
             radius_data.remove(radius_data[0])
             
         #print(circle_radius)
-        x_pid.SetPoint = img_w/2 #设定           
-        x_pid.update(centerX) #当前
+        x_pid.SetPoint = img_w/2 # Setpoint           
+        x_pid.update(centerX) # Current value
         dx = int(x_pid.output)
         use_time = abs(dx*0.00025)
-        x_dis += dx #输出           
+        x_dis += dx # Output           
         
         x_dis = servo_data['servo2'] - 400 if x_dis < servo_data['servo2'] - 400 else x_dis          
         x_dis = servo_data['servo2'] + 400 if x_dis > servo_data['servo2'] + 400 else x_dis
@@ -248,10 +328,11 @@ def run(img):
     else:
         centerX, centerY = -1, -1
    
-    #img = cv2.remap(img, mapx, mapy, cv2.INTER_LINEAR)  # 畸变矫正 
+    #img = cv2.remap(img, mapx, mapy, cv2.INTER_LINEAR)   # Distortion correction 
 
     return img
 
+# Function for image processing to help with tracking (HSV version)
 def run_hsv(img):
     global radius_data
     global x_dis, y_dis
@@ -265,41 +346,58 @@ def run_hsv(img):
     
     frame_resize = cv2.resize(img_copy, size, interpolation=cv2.INTER_NEAREST)
     frame_gb = cv2.GaussianBlur(frame_resize, (3, 3), 3)
-    frame_hsv = cv2.cvtColor(frame_gb, cv2.COLOR_BGR2HSV)  # HSV instead of LAB
+    frame_hsv = cv2.cvtColor(frame_gb, cv2.COLOR_RGB2HSV)  # Convert to HSV
+    run_hsv.last_hsv = frame_hsv
     
     area_max = 0
     areaMaxContour = None
+    
+    # Start with an empty mask
+    merged_mask = np.zeros(frame_hsv.shape[:2], dtype=np.uint8)
 
     # Loop through HSV thresholds instead of LAB
     for i in lab_data_hsv:
         if i in __target_color:
             detect_color = i
-            frame_mask = cv2.inRange(
+
+            mask = cv2.inRange(
                 frame_hsv,
-                (lab_data_hsv[i]['min'][0],
-                 lab_data_hsv[i]['min'][1],
-                 lab_data_hsv[i]['min'][2]),
-                (lab_data_hsv[i]['max'][0],
-                 lab_data_hsv[i]['max'][1],
-                 lab_data_hsv[i]['max'][2])
+                tuple(lab_data_hsv[i]['min']),
+                tuple(lab_data_hsv[i]['max'])
             )
-            
-            if debug:
-                # Show the raw binary mask (white = detected)
-                cv2.imshow(f"{i}_mask", frame_mask)
 
-                # Show the masked color image (only detected pixels visible)
-                masked = cv2.bitwise_and(frame_resize, frame_resize, mask=frame_mask)
-                cv2.imshow(f"{i}_masked", masked)
+            # Merge this mask with the others
+            merged_mask = cv2.bitwise_or(merged_mask, mask)
+    
+    
+    # min: [128, 120, 120]
+    # max: [132, 255, 255]
+    
+    # Hard-coded HSV ranges for red
+    lower_red1 = np.array([128, 120, 120])
+    upper_red1 = np.array([132, 255, 255])
 
-                # Optional: show inverse mask (pixels NOT detected)
-                inv_mask = cv2.bitwise_not(frame_mask)
-                cv2.imshow(f"{i}_inv_mask", inv_mask)
-            
-            eroded = cv2.erode(frame_mask, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))
-            dilated = cv2.dilate(eroded, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))
-            contours = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[-2]
-            areaMaxContour, area_max = getAreaMaxContour(contours)
+    # # lower_red2 = np.array([110, 160, 190])
+    # # upper_red2 = np.array([170, 255, 255])
+
+    # # Create masks
+    merged_mask = cv2.inRange(frame_hsv, lower_red1, upper_red1)
+    # # mask2 = cv2.inRange(frame_hsv, lower_red2, upper_red2)
+
+    # # Merge them
+    # # merged_mask = cv2.bitwise_or(mask1, mask2)
+
+    # Debug mask view
+    cv2.imshow('mask', merged_mask)
+    cv2.imshow("masked", cv2.bitwise_and(frame_resize, frame_resize, mask=merged_mask))
+
+    # Morphology
+    eroded = cv2.erode(merged_mask, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))
+    dilated = cv2.dilate(eroded, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))
+
+    # Contours
+    contours = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)[-2]
+    areaMaxContour, area_max = getAreaMaxContour(contours)
 
     # If a valid contour was found
     if areaMaxContour is not None and area_max > 100:
@@ -319,6 +417,7 @@ def run_hsv(img):
         radius = abs(ptime_start_x - pt3_x)
         centerX, centerY = int((ptime_start_x + pt3_x) / 2), int((ptime_start_y + pt3_y) / 2)
 
+        print('CenterX =', centerX, 'centerY =', centerY, 'circle_radius =', circle_radius)
         cv2.circle(img, (centerX, centerY), 5, (0, 255, 255), -1)
 
         # Radius smoothing
@@ -340,7 +439,8 @@ def run_hsv(img):
         use_time = abs(dx * 0.00025)
         x_dis += dx
 
-        x_dis = max(servo_data['servo2'] - 400, min(x_dis, servo_data['servo2'] + 400))
+        x_dis = servo_data['servo2'] - 400 if x_dis < servo_data['servo2'] - 400 else x_dis
+        x_dis = servo_data['servo2'] + 400 if x_dis > servo_data['servo2'] + 400 else x_dis
 
         y_pid.SetPoint = img_h / 2
         y_pid.update(centerY)
@@ -348,7 +448,8 @@ def run_hsv(img):
         use_time = round(max(use_time, abs(dy * 0.00025)), 5)
         y_dis += dy
 
-        y_dis = max(servo_data['servo1'], min(y_dis, 2000))
+        y_dis = servo_data['servo1'] if y_dis < servo_data['servo1'] else y_dis
+        y_dis = 2000 if y_dis > 2000 else y_dis
 
         Board.setPWMServoPulse(1, y_dis, use_time * 1000)
         Board.setPWMServoPulse(2, x_dis, use_time * 1000)
@@ -359,10 +460,22 @@ def run_hsv(img):
 
     return img
 
+# Main Breakdown
+# 1. Initializes and starts tracking
+# 2. Opens camera
+# 3. Runs action group 
+
+
+def show_hsv(event, x, y, flags, param):
+    if event == cv2.EVENT_MOUSEMOVE:
+        hsv = param[y, x]
+        print("HSV:", hsv)
+
 if __name__ == '__main__':
     init()
     start()
     __target_color = ('red',)
+    print('__target_color = ', __target_color)
     open_once = yaml_handle.get_yaml_data('/boot/camera_setting.yaml')['open_once']
     if open_once:
         my_camera = cv2.VideoCapture('http://127.0.0.1:8080/?action=stream?dummy=param.mjpg')
@@ -374,9 +487,9 @@ if __name__ == '__main__':
         ret, img = my_camera.read()
         if img is not None:
             frame = img.copy()
-            # Frame = run(frame)           
             Frame = run_hsv(frame)           
             cv2.imshow('Frame', Frame)
+            cv2.setMouseCallback("Frame", show_hsv, run_hsv.last_hsv)
             key = cv2.waitKey(1)
             if key == 27:
                 break
@@ -384,3 +497,6 @@ if __name__ == '__main__':
             time.sleep(0.01)
     my_camera.camera_close()
     cv2.destroyAllWindows()
+
+
+
