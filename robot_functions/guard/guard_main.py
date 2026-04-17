@@ -5,14 +5,18 @@ import sys
 import cv2
 import time
 import numpy as np
-
+'''
 import HiwonderSDK.Board as Board
 import HiwonderSDK.Camera as Camera
 import HiwonderSDK.ActionGroupControl as AGC
-import HiwonderSDK.yaml_handle as yaml_handle
-
-
 from Functions.CameraCalibration.CalibrationConfig import calibration_param_path
+'''
+import robot_functions.guard.stubs.HiwonderSDK.Board as Board
+import robot_functions.guard.stubs.HiwonderSDK.Camera as Camera
+import robot_functions.guard.stubs.HiwonderSDK.ActionGroupControl as AGC
+from robot_functions.guard.stubs.CameraCalibration.CalibrationConfig import calibration_param_path
+
+import HiwonderSDK.yaml_handle as yaml_handle
 from robot_functions.guard.follow_class import FollowController
 from robot_functions.guard.visualPatrol_class import VisualPatrolController
 
@@ -33,6 +37,8 @@ LOST_TARGET_TIMEOUT = 1.5
 
 STATE_PATROL = 'patrol'
 STATE_SEARCH = 'search'
+STATE_GAME_OVER = 'game_over'
+STATE_IDLE = 'idle'
 
 
 # ----------------------------
@@ -79,6 +85,8 @@ class LeftCenterPan:
         self.next_switch_time = now + self.dwell_time
 
 
+
+
 # ----------------------------
 # Camera calibration
 # ----------------------------
@@ -94,13 +102,44 @@ mapx, mapy = cv2.initUndistortRectifyMap(mtx, dist, None, newcameramtx, (640, 48
 
 
 def main():
-    # 1. Register with GameController and get ID
+    # --------------------------------------------
+    # Register with GameController and get ID
+    # ----------------------
     conn = RobotConnectionHandler(role="guard")
     guard_id, broker_ip = conn.register_and_wait_for_id()
 
     print(f"[GUARD] Assigned ID = {guard_id}, broker = {broker_ip}")
 
-    # 2. Create the runtime MQTT client
+    # --------------------------------------------
+    # MQTT Helper Functions
+    # --------------------------------------------
+    pending_commands = []
+
+
+    # on message for mqtt
+    def on_message(client, userdata, msg):
+        topic = msg.topic
+        payload = msg.payload.decode()
+
+        if topic == f"game/guard/{guard_id}/command":
+            print(f"[GUARD] Received command: {payload}")
+            pending_commands.append(payload)
+
+        if topic == "game/system/game_over":
+            print("[GUARD] GAME OVER received")
+
+            handle_game_over()
+            return
+
+    def send_event(event):
+        comm.publish(f"game/guard/{guard_id}/events", event)
+
+    def send_detection(det):
+        comm.publish(f"game/guard/{guard_id}/detections", det)
+
+    # --------------------------------------------
+    # Create the runtime MQTT client
+    # --------------------------------------------
     comm = RobotComm(
         client_name=guard_id,
         broker_ip=broker_ip,
@@ -109,12 +148,15 @@ def main():
             "game/system/#"
         ],
         on_message=on_message,   
-        heartbeat_interval=5.0,
+        heartbeat_interval=2.0,
         heartbeat_prefix="game/robot"
     )
 
     comm.connect()
 
+    state = None
+    state_start_time = None
+    last_target_seen_time = None
 
 
 
@@ -126,12 +168,69 @@ def main():
     patrol.init()
     follow.init()
 
-    open_once = yaml_handle.get_yaml_data('/boot/camera_setting.yaml')['open_once']
+    try: open_once = yaml_handle.get_yaml_data('/boot/camera_setting.yaml')['open_once']
+    except: open_once = None
     if open_once:
         my_camera = cv2.VideoCapture('http://127.0.0.1:8080/?action=stream?dummy=param.mjpg')
     else:
         my_camera = Camera.Camera()
         my_camera.camera_open()
+
+
+    def handle_command(cmd):
+        nonlocal state, state_start_time, last_target_seen_time
+        # Action group command: "action:wave"
+        if cmd.startswith("action:"):
+            action_name = cmd.split(":", 1)[1]
+            print(f"[GUARD] Running action group: {action_name}")
+            try:
+                AGC.runActionGroup(action_name)
+            except Exception as e:
+                print("[GUARD] Action group error:", e)
+            return
+        
+        if cmd == "game_over":
+            print("[GUARD] Executing game-over behavior")
+            handle_game_over()
+
+        # Force state transitions
+        if cmd == "state:patrol":
+            state, state_start_time, last_target_seen_time = enter_patrol()
+            return
+
+        if cmd == "state:search":
+            
+            state, state_start_time, last_target_seen_time = enter_search()
+            return
+
+        # Stop everything
+        if cmd == "stop":
+            try: patrol.stop()
+            except: pass
+            try: follow.stop()
+            except: pass
+            print("[GUARD] Stopped all movement")
+            return
+
+        # Reset robot
+        if cmd == "reset":
+            state, state_start_time, last_target_seen_time = enter_patrol()
+            return
+
+    def handle_game_over():
+        state == STATE_GAME_OVER
+        try:
+            patrol.stop()
+        except Exception:
+            pass
+
+        try:
+            follow.stop()
+        except Exception:
+            pass
+
+        AGC.runActionGroup("twist")
+
 
     def enter_patrol():
         try:
@@ -200,6 +299,13 @@ def main():
             frame = cv2.remap(img.copy(), mapx, mapy, cv2.INTER_LINEAR)
             now = time.monotonic()
 
+            if state == STATE_GAME_OVER:
+                break
+
+            if pending_commands:
+                cmd = pending_commands.pop(0)
+                handle_command(cmd)
+
             if state == STATE_PATROL:
                 send_event("patrol_started")
                 display = patrol.run(frame)
@@ -212,7 +318,8 @@ def main():
                 display = follow.run(frame)
 
                 if follow.target_caught == True:
-                    game_over = True
+                    # game over
+                    send_event("intruder_captured")
 
                 if follow.target_visible():
                     last_target_seen_time = now
@@ -264,25 +371,7 @@ def main():
         cv2.destroyAllWindows()
 
 
-    # ----------------------
-    # MQTT Helper Functions
-    # ----------------------
-
-        # on message for mqtt
-    def on_message(client, userdata, msg):
-        topic = msg.topic
-        payload = msg.payload.decode()
-
-        if topic == f"game/guard/{guard_id}/command":
-            print(f"[GUARD] Received command: {payload}")
-            # You can hook this into your FSM if needed
-
-    def send_event(event):
-        comm.publish(f"game/guard/{guard_id}/events", event)
-
-    def send_detection(det):
-        comm.publish(f"game/guard/{guard_id}/detections", det)
-
+    
 
 if __name__ == '__main__':
     main()

@@ -35,8 +35,8 @@ class RobotConnectionHandler:
             broker_ip=self.broker_ip,
             subscriptions=[f"game/robot/role_assignment/{self.mac}"],
             on_message=self._on_message,
-            heartbeat_interval=None,      # no heartbeat needed here
-            heartbeat_prefix=None
+            heartbeat_interval=999999.0,      # no heartbeat needed here
+            heartbeat_prefix=f"bootstrap/heartbeat"
         )
 
         self.comm.connect()
@@ -50,7 +50,7 @@ class RobotConnectionHandler:
             self.assigned_id = data["id"]
             print(f"[BOOTSTRAP] Assigned id={self.assigned_id} for role={self.role}")
 
-    def register_and_wait_for_id(self, timeout=5.0):
+    def register_and_wait_for_id(self, timeout=10.0):
         """
         Send registration request and block until ID is assigned or timeout.
         """

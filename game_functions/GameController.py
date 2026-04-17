@@ -164,6 +164,22 @@ class GameController:
         self.comm.publish("game/system/game_over", f"guard {guard_id}")
         self.stop_game()
 
+    def trigger_game_over(self, winner, guard_id=None, intruder_id=None):
+        self.game_running = False
+
+        payload = {
+            "winner": winner,
+            "guard": guard_id,
+            "intruder": intruder_id
+        }
+
+        # Broadcast to ALL robots
+        self.comm.publish("game/system/game_over", json.dumps(payload))
+
+        # Log to GUI
+        self._notify_event(f"Game Over! Winner = {winner}")
+
+
     # ---------------------------------------------------------
     # ROBOT-SPECIFIC COMMANDS
     # ---------------------------------------------------------
@@ -211,7 +227,7 @@ class GameController:
             if now - info["last_seen"] > timeout:
                 disconnected.append((mac, info["role"], info["id"]))
 
-                # 🔥 Notify GUI
+                # Notify GUI
                 if self.on_disconnect:
                     self.on_disconnect(mac, info["role"], info["id"])
 
