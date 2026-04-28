@@ -9,7 +9,7 @@ from pathlib import Path
 
 # Fake AGC stub (in case the real one isn't loaded)
 try:
-    import HiwonderSDK.ActionGroupControl as AGC
+    import hiwonder.ActionGroupControl as AGC
 except Exception:
     class AGC:
         @staticmethod

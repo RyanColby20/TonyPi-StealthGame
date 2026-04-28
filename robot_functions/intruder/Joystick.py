@@ -6,8 +6,8 @@ import time
 import pygame
 import threading
 
-import HiwonderSDK.ActionGroupControl as AGC
-import HiwonderSDK.Board as Board
+import hiwonder.ActionGroupControl as AGC
+import hiwonder.Board as Board
 
 # ============================================================
 # TonyPi Joystick Control - final hybrid version

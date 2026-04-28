@@ -6,9 +6,9 @@ import cv2
 import time
 import numpy as np
 
-import HiwonderSDK.Board as Board
-import HiwonderSDK.Camera as Camera
-import HiwonderSDK.ActionGroupControl as AGC
+import hiwonder.Board as Board
+import hiwonder.Camera as Camera
+import hiwonder.ActionGroupControl as AGC
 from Functions.CameraCalibration.CalibrationConfig import calibration_param_path
 '''
 import robot_functions.guard.stubs.HiwonderSDK.Board as Board
@@ -16,7 +16,7 @@ import robot_functions.guard.stubs.HiwonderSDK.Camera as Camera
 import robot_functions.guard.stubs.HiwonderSDK.ActionGroupControl as AGC
 from robot_functions.guard.stubs.CameraCalibration.CalibrationConfig import calibration_param_path
 '''
-import HiwonderSDK.yaml_handle as yaml_handle
+import utils.yaml_handle as yaml_handle
 from robot_functions.guard.follow_class import FollowController
 from robot_functions.guard.visualPatrol_class import VisualPatrolController
 

@@ -9,7 +9,7 @@ from pathlib import Path
 
 # These imports depend on your TonyPi SDK structure.
 # Adjust as needed.
-import HiwonderSDK.ActionGroupControl as AGC
+import hiwonder.ActionGroupControl as AGC
 
 class TonyPiController:
     def __init__(self):

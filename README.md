@@ -5,12 +5,75 @@ This project is composed of two primary elements built on top of the default Ton
 ## Directory structure
 
 ```
-Todo at end: tree
+Folder PATH listing for volume Windows
+Volume serial number is CADF-5C02
+C:.
+|   broker_controller.py
+|   EXPO_GUI_RUN_ME.py
+|   git-friend.py
+|   gui_game_controller.py
+|   gui_robot_broker.py
+|   lab_config.yaml
+|   lab_config_hsv.yaml
+|   main_robot.py
+|   README.md
+|   requirements.txt
+|   robot_config.yaml
+|   servo_config.yaml
+|   tree.txt
+|   
++---ActionGroups
+|       
++---game_functions
+|       GameController.py
+|       
++---robot_functions
+|   |   robot_comm.py
+|   |   robot_controller.py
+|   |   robot_controller_dummy.py
+|   |   robot_role.py
+|   |   __init__.py
+|   |   
+|   +---game
+|   |       robot_connection.py
+|   |       
+|   +---guard
+|   |   |   follow_class.py
+|   |   |   guard_main.py
+|   |   |   visualPatrol_class.py
+|   |   |   __init__.py
+|   |   |   
+|   |   \---stubs
+|   |       |   __init__.py
+|   |       |   
+|   |       +---CameraCalibration
+|   |       |       CalibrationConfig.py
+|   |       |       fake_calibration.npz
+|   |       |       npz_stub_gen.py
+|   |       |       __init__.py
+|   |       |       
+|   |       \---HiwonderSDK
+|   |               ActionGroupControl.py
+|   |               Board.py
+|   |               Camera.py
+|   |               Misc.py
+|   |               PID.py
+|   |               __init__.py
+|   |               
+|   \---intruder
+|           intruder_main.py
+|           Joystick.py
+|           __init__.py
+|           
++---utils
+|       yaml_handle.py
+
+
 ```
 
 ## Installation
 ### Robot instructions
-1. Download the contents of this repo into the /TonyPi/ folder. 
+1. Download the contents of this repo into the /TonyPi/ folder (alongside the hiwonder library). 
 2. Install the Python dependencies:
 
 ```bash
