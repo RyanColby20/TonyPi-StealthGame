@@ -121,6 +121,11 @@ def main():
         topic = msg.topic
         payload = msg.payload.decode()
 
+        if topic == "game/system/start":
+            print("[GUARD] GAME START received")
+            pending_commands.append("start_game")
+            return
+
         if topic == f"game/guard/{guard_id}/command":
             print(f"[GUARD] Received command: {payload}")
             pending_commands.append(payload)
@@ -189,6 +194,11 @@ def main():
                 print("[GUARD] Action group error:", e)
             return
         
+        if cmd == "start_game":
+            print("[GUARD] Transitioning from IDLE → PATROL")
+            state, state_start_time, last_target_seen_time = enter_patrol()
+            return
+
         if cmd == "game_over":
             print("[GUARD] Executing game-over behavior")
             handle_game_over()
@@ -230,6 +240,26 @@ def main():
             pass
 
         AGC.runActionGroup("twist")
+
+    def enter_idle():
+        try:
+            patrol.stop()
+        except Exception:
+            pass
+
+        try:
+            follow.stop()
+        except Exception:
+            pass
+
+        # Optional: put robot in a neutral pose
+        try:
+            AGC.runActionGroup("stand")
+        except Exception:
+            pass
+
+        print("[GUARD] Entering IDLE state, waiting for game start...")
+        return STATE_IDLE, time.monotonic(), None
 
 
     def enter_patrol():
@@ -287,7 +317,7 @@ def main():
 
         return STATE_SEARCH, time.monotonic(), None
 
-    state, state_start_time, last_target_seen_time = enter_patrol()
+    state, state_start_time, last_target_seen_time = enter_idle()
 
     try:
         while True:
@@ -302,9 +332,18 @@ def main():
             if state == STATE_GAME_OVER:
                 break
 
+            if state == STATE_IDLE:
+                # Do nothing except show camera feed
+                display = frame
+                cv2.imshow('guard_main', display)
+                key = cv2.waitKey(1)
+                time.sleep(0.01)
+                continue
+
             if pending_commands:
                 cmd = pending_commands.pop(0)
                 handle_command(cmd)
+
 
             if state == STATE_PATROL:
                 send_event("patrol_started")
