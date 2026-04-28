@@ -1,9 +1,6 @@
 # TonyPi Stealth Game and Network Framework
 
-This project is composed of two primary elements built on top of the default TonyPi framework. The TonyPi's are connected to a singular wifi network. This project then allow for synchronous Action Group or Script execution. The second layer of this project is an intruders vs guards stealth game. The game is managed by a GUI and each guard is an autonomous patrol based robot to be avoided by a player's remote-controlled intruder.
-
-
-Todo
+This project is composed of two primary elements built on top of the default TonyPi framework. The TonyPi's are connected to a singular wifi network. This project then allow for synchronous Action Group or Script execution. The second layer of this project is an intruders vs guards stealth game. The game is managed by a GUI and each guard is an autonomous patrol based robot to be avoided by a player's remote-controlled intruder. This project also includes a GUI to demonstrate some of the network functionalities of the robots at the Brandywine Student Expo.
 
 ## Directory structure
 
