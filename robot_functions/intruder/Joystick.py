@@ -6,8 +6,8 @@ import time
 import pygame
 import threading
 
-import hiwonder.ActionGroupControl as AGC
-import hiwonder.Board as Board
+import HiwonderSDK.ActionGroupControl as AGC
+import HiwonderSDK.Board as Board
 
 # ============================================================
 # TonyPi Joystick Control - final hybrid version
@@ -321,6 +321,8 @@ def look_update(js):
     Board.setPWMServoPulse(PAN_SERVO_ID, int(_pan), SERVO_MOVE_TIME_MS)
     Board.setPWMServoPulse(TILT_SERVO_ID, int(_tilt), SERVO_MOVE_TIME_MS)
 
+def stop():
+    _stop_all = True
 
 def stop_actions():
     try:

@@ -52,6 +52,8 @@ class GameGUI:
         tk.Button(mid, text="Start Game", command=self.controller.start_game).pack(fill="x", pady=5)
         tk.Button(mid, text="Stop Game", command=self.controller.stop_game).pack(fill="x", pady=5)
         tk.Button(mid, text="Reset Game", command=self.controller.reset_game).pack(fill="x", pady=5)
+        tk.Button(mid, text="Test Game Over", command=lambda: self.controller.trigger_game_over("guard")).pack(fill="x", pady=5)
+
 
         right = tk.Frame(self.root, padx=10, pady=10)
         right.grid(row=0, column=2, sticky="nsew")

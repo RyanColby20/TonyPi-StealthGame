@@ -48,7 +48,8 @@ class RobotComm:
         self.client.loop_start()
 
         # Start heartbeat thread
-        threading.Thread(target=self._heartbeat_loop, daemon=True).start()
+        if self.heartbeat_interval:
+            threading.Thread(target=self._heartbeat_loop, daemon=True).start()
 
     def _reconnect_loop(self):
         """Try reconnecting with exponential backoff."""
@@ -89,3 +90,27 @@ class RobotComm:
         self._stop_flag = True
         self.client.loop_stop()
         self.client.disconnect()
+
+    def disconnect(self):
+        """
+        Dummy-safe disconnect function.
+        Some modules expect RobotComm.disconnect() to exist.
+        This version simply stops threads and prints status.
+        """
+        print(f"[{self.client_name}] disconnect() called")
+
+        # Stop heartbeat + reconnect loops
+        self._stop_flag = True
+
+        try:
+            self.client.loop_stop()
+        except Exception:
+            pass
+
+        try:
+            self.client.disconnect()
+        except Exception:
+            pass
+
+        self.connected = False
+        print(f"[{self.client_name}] Disconnected cleanly (dummy mode)")

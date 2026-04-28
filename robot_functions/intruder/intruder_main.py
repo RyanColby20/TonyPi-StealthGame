@@ -1,20 +1,26 @@
 # intruder_main.py
-'''
-This file runs the state machine responsible for managing the intruder
-This is the file that should be run to initialize an intruder within the game.
-'''
+"""
+Intruder state machine:
+- IDLE: waiting for game start
+- RUNNING: joystick control active
+- GAME_OVER: robot frozen
+"""
 
 import json
 import time
 import signal
 import sys
-import uuid
+import threading
 
 from robot_functions.robot_comm import RobotComm
 from robot_functions.robot_controller import TonyPiController
-from controller_input.bluetooth_input import get_controller_input
-
+import robot_functions.intruder.Joystick as joy
 from robot_functions.game.robot_connection import RobotConnectionHandler
+
+
+STATE_IDLE = "IDLE"
+STATE_RUNNING = "RUNNING"
+STATE_GAME_OVER = "GAME_OVER"
 
 
 class intruder_main:
@@ -22,8 +28,13 @@ class intruder_main:
         self.id = intruder_id
         self.robot = robot_controller
 
-        self.state = "WAITING_FOR_GAME_START"
+        self.state = STATE_IDLE
         self.running = True
+        self.pending_commands = []
+
+        self.joystick_thread = None
+        self.joystick_running = False
+
 
         self.comm = RobotComm(
             client_name=f"intruder_{intruder_id}",
@@ -41,6 +52,7 @@ class intruder_main:
         )
 
         self.comm.connect()
+        self.enter_idle()
 
     # ---------------------------------------------------------
     # MQTT HANDLER
@@ -49,53 +61,47 @@ class intruder_main:
         topic = msg.topic
         payload = msg.payload.decode()
 
+        # System events
         if topic == "game/system/start":
-            self._start_game()
+            self.pending_commands.append("start")
             return
 
         if topic == "game/system/stop":
-            self._stop_game()
+            self.pending_commands.append("stop")
             return
 
         if topic == "game/system/reset":
-            self._reset_game()
+            self.pending_commands.append("reset")
             return
 
         if topic == "game/system/game_over":
-            self._enter_game_over()
+            self.pending_commands.append("game_over")
             return
 
+        # Direct intruder commands
         if topic == f"game/intruder/{self.id}/command":
-            if payload == "stop":
-                self._stop_game()
-            elif payload == "reset":
-                self._reset_game()
-            elif payload == "game_over":
-                self._enter_game_over()
+            self.pending_commands.append(payload)
 
     # ---------------------------------------------------------
     # STATE TRANSITIONS
     # ---------------------------------------------------------
-    def _start_game(self):
-        if self.state == "WAITING_FOR_GAME_START":
-            self.state = "ACTIVE_PLAYER_CONTROL"
-            self._publish_state()
-            print("[INTRUDER] Game started, player control enabled")
-
-    def _stop_game(self):
-        self.state = "WAITING_FOR_GAME_START"
+    def enter_idle(self):
+        self.state = STATE_IDLE
         self.robot.stop_all()
+        self._stop_joystick()
         self._publish_state()
-        print("[INTRUDER] Game stopped, returning to waiting")
+        print("[INTRUDER] Entering IDLE state, waiting for game start...")
 
-    def _reset_game(self):
-        self.state = "WAITING_FOR_GAME_START"
-        self.robot.stop_all()
+    def enter_running(self):
+        self.state = STATE_RUNNING
         self._publish_state()
-        print("[INTRUDER] Game reset")
+        print("[INTRUDER] Game started → RUNNING (joystick enabled)")
+        self._start_joystick()
 
-    def _enter_game_over(self):
-        self.state = "GAME_OVER"
+
+    def enter_game_over(self):
+        self.state = STATE_GAME_OVER
+        self._stop_joystick()
         self.robot.stop_all()
         self._publish_state()
         print("[INTRUDER] Entering GAME_OVER state")
@@ -110,34 +116,83 @@ class intruder_main:
         self.comm.publish(f"game/intruder/{self.id}/events", event)
 
     # ---------------------------------------------------------
-    # MAIN LOOP (PLAYER CONTROL)
+    # Joy helpers
     # ---------------------------------------------------------
+
+    def _start_joystick(self):
+        if self.joystick_running:
+            return
+
+        self.joystick_running = True
+
+        def run_js():
+            try:
+                joy.main()   # blocking call
+            except Exception as e:
+                print("[INTRUDER] Joystick error:", e)
+            finally:
+                self.joystick_running = False
+
+        self.joystick_thread = threading.Thread(target=run_js, daemon=True)
+        self.joystick_thread.start()
+        print("[INTRUDER] Joystick thread started")
+
+    def _stop_joystick(self):
+        # joystick_main() must internally stop when game ends   
+        try:
+            joy.stop()
+            self.joystick_running = False
+        except:
+            pass
+        print("[INTRUDER] Joystick stop requested")
+
+
+    # ---------------------------------------------------------
+    # MAIN LOOP
+    # ---------------------------------------------------------
+
     def update(self):
-        """Called every frame."""
-        if self.state != "ACTIVE_PLAYER_CONTROL":
-            return
+        # Nothing to do here anymore
+        return
 
-        controller_input = self.robot.get_input()
-        if controller_input is None:
-            return
-
-        self.robot.drive(controller_input)
 
     def run(self, fps=30):
-        """Main loop that keeps the intruder alive."""
-        print("[INTRUDER] Running main loop...")
+        print("[INTRUDER] Main loop running...")
         frame_delay = 1.0 / fps
 
         while self.running:
-            self.update()
+            # Process pending commands
+            if self.pending_commands:
+                cmd = self.pending_commands.pop(0)
+                self._handle_command(cmd)
+
             time.sleep(frame_delay)
 
         print("[INTRUDER] Shutdown complete.")
 
+    # ---------------------------------------------------------
+    # COMMAND HANDLER
+    # ---------------------------------------------------------
+    def _handle_command(self, cmd):
+        if cmd == "start":
+            self.enter_running()
+
+        elif cmd == "stop":
+            self.enter_idle()
+
+        elif cmd == "reset":
+            self.enter_idle()
+
+        elif cmd == "game_over":
+            self.enter_game_over()
+
+    # ---------------------------------------------------------
+    # SHUTDOWN
+    # ---------------------------------------------------------
     def shutdown(self):
-        """Graceful shutdown."""
         print("[INTRUDER] Shutting down...")
         self.running = False
+        self._stop_joystick()
         self.robot.stop_all()
         self.comm.disconnect()
 
@@ -146,8 +201,6 @@ class intruder_main:
 # ENTRY POINT
 # ---------------------------------------------------------
 def main():
-
-
     connector = RobotConnectionHandler(role="intruder")
     intruder_id, broker_ip = connector.register_and_wait_for_id()
 
@@ -158,7 +211,6 @@ def main():
         robot_controller=robot
     )
 
-    # Handle CTRL-C
     def handle_sigint(sig, frame):
         intruder.shutdown()
         sys.exit(0)
