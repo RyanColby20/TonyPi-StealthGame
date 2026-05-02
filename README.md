@@ -136,9 +136,68 @@ This component of the project is used to manage the Guards vs Intruders Stealthg
 
 ## How the Codes Work and What They Do:
 
-TODO
+### `main_robot.py`
+Main file that runs on each TonyPi robot. It connects the robot to MQTT and listens for commands to run action groups, scripts, or stop.
 
-## Notes
+### `broker_controller.py`
+Backend controller for the robot broker GUI. It sends MQTT commands to selected robots and tracks robot heartbeats.
 
+### `gui_robot_broker.py`
+General robot-control GUI. It lets the user select robots and manually send action groups or scripts.
 
-"# TonyPi-StealthGame" 
+### `EXPO_GUI_RUN_ME.py`
+Simplified demo GUI for the Student Expo. It provides preset buttons for common robot actions like wave, bow, kick, dance, and stop, and puts them on display.
+
+### `game_functions/GameController.py`
+Main controller for the Guards vs Intruder game. It registers robots, assigns IDs, sends start/stop/reset commands, tracks heartbeats, and handles game-over events. Pretty much the heart of the system.
+
+### `gui_game_controller.py`
+GUI for managing the stealth game. It lets the user start, stop, reset, and monitor the game.
+
+### `robot_functions/robot_comm.py`
+MQTT communication wrapper used by the robots. It handles connecting, subscribing, publishing messages, and sending heartbeat signals as well.
+
+### `robot_functions/robot_controller.py`
+Real TonyPi controller used to run robot action groups and scripts. It connects high-level commands like `guard` or `intruder` to the actual robot behavior code.
+
+### `robot_functions/robot_controller_dummy.py`
+Testing version of the TonyPi controller. It allows the code to be tested on a regular computer without physical robot hardware.
+
+### `robot_functions/robot_role.py`
+Tracks the robot’s current role or state. It helps prevent the robot from running multiple actions or scripts at the same time, which can cause concurrency issues.
+
+### `robot_functions/game/robot_connection.py`
+Handles guard and intruder registration with the game controller. It sends the robot’s role and MAC address, then receives the assigned game ID.
+
+### `robot_functions/guard/guard_main.py`
+Main behavior script for a guard robot. It waits for the game to start, patrols, searches for the intruder, and reports when the intruder is caught.
+
+### `robot_functions/guard/visualPatrol_class.py`
+Controls the guard’s patrol behavior. It uses the camera to detect and follow a black line on the floor.
+
+### `robot_functions/guard/follow_class.py`
+Controls the guard’s search/follow behavior. It detects the red intruder target and moves the guard toward it.
+
+### `robot_functions/intruder/intruder_main.py`
+Main behavior script for the intruder robot. It waits for the game to start, then enables joystick-controlled movement.
+
+### `robot_functions/intruder/Joystick.py`
+Reads joystick input using `pygame`. It converts controller movements and button presses into TonyPi action groups.
+
+### `utils/yaml_handle.py`
+Utility file for reading and writing YAML configuration files. It helps load robot, servo, and color-detection settings.
+
+### `lab_config.yaml`
+Stores LAB color threshold settings used for vision detection. These values help the robot identify colors like the black patrol line.
+
+### `lab_config_hsv.yaml`
+Stores HSV color threshold settings used for vision detection. These values help with detecting colored targets such as the red intruder marker.
+
+### `robot_config.yaml`
+Stores robot-specific settings such as the robot name, broker IP address, and MQTT topic configuration.
+
+### `servo_config.yaml`
+Stores servo-related configuration values for the TonyPi robot. It helps define how the servos are calibrated or positioned.
+
+### `requirements.txt`
+Lists the Python packages needed to run the project. This includes libraries such as OpenCV, NumPy, PyYAML, Paho MQTT, and Pygame.
